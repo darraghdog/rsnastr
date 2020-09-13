@@ -2,4 +2,4 @@
 
 This is the code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection) challenge.
   
-![](figs/scan.png?raw=true "Optional Title") 
+![](figs/scan.png) 
