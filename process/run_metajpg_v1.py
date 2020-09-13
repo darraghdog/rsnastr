@@ -1,7 +1,7 @@
 # https://www.kaggle.com/teeyee314/rsna-pe-metadata-with-multithreading
 import numpy as np # linear algebra
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-import os
+import platform
 import gc
 import glob
 import pydicom
@@ -11,22 +11,25 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 import cv2
-#from turbojpeg import TurboJPEG
+from turbojpeg import TurboJPEG
 # import gdcm
 import zipfile
 from io import StringIO
 # conda install gdcm -c conda-forge
-
-
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
 
-BASE_PATH = '/Users/dhanley/Documents/rsnastr/data/dicom'
-JPEG_PATH = '/Users/dhanley/Documents/rsnastr/data/jpeg'
-BASE_PATH = '/data/rsnastr/data'
-JPEG_PATH = '/data/rsnastr/data/jpeg'
-#jpeg = TurboJPEG()
-print(os.listdir(BASE_PATH ))
+PATH = '/Users/dhanley/Documents/rsnastr' \
+        if platform.system() == 'Darwin' else '/data/rsnastr'
+os.chdir(PATH)
+from utils.logs import get_logger
+logger = get_logger('Create folds', 'INFO') 
+
+
+BASE_PATH = f'{PATH}/data'
+JPEG_PATH = f'{PATH}/data/jpeg'
+jpeg = TurboJPEG()
+logger.info(f'Home path list \n{os.listdir(BASE_PATH )}')
 
 def turbodump(f, img):
     # encoding BGR array to output.jpg with default settings.
@@ -123,22 +126,28 @@ def process_pixel_zip(filename):
             # Read dicom
             dicom_object = pydicom.dcmread(f)
             # Convert to jpeg and write to disk
-            out_fname = f'{JPEG_PATH}/{filename}'.replace('.dcm', '.jpg')
-            # out_fname = img_path.replace('dicom', JPEG_PATH).replace('.dcm', '.jpg')
+            if platform.system() == 'Darwin':
+                out_fname = filename.replace('dicom', JPEG_PATH).replace('.dcm', '.jpg')
+            else:
+                out_fname = f'{JPEG_PATH}/{filename}'.replace('.dcm', '.jpg')
             fpath = Path(out_fname).parents[0]
             fpath.mkdir(parents=True, exist_ok=True)
             img = bsb_window(dicom_object)
             cv2.imwrite(out_fname, img)
 
-# test/13a9d0362d9f/3d40ade23860/fcb07347fc83.dcm
-z = zipfile.ZipFile(f'{BASE_PATH}/rsna-str-pulmonary-embolism-detection.zip')    
-print(f'Sample image dir : {z.namelist()[1500]}')
-
-# Process train meta data
-with ThreadPoolExecutor() as threads:
-   threads.map(process_pixel_zip, z.namelist())   
-gc.collect()
-
+logger.info('Start extracting jpeg')
+if platform.system() == 'Darwin':
+    z = zipfile.ZipFile(f'{BASE_PATH}/dicom.zip')     
+    # Process train meta data
+    with ThreadPoolExecutor() as threads:
+       threads.map(process_pixel_zip, z.namelist())   
+    gc.collect()
+else:
+    z = zipfile.ZipFile(f'{BASE_PATH}/rsna-str-pulmonary-embolism-detection.zip')    
+    # Process train meta data
+    with ThreadPoolExecutor() as threads:
+       threads.map(process_pixel_zip, z.namelist())   
+    gc.collect()
 
 
 
