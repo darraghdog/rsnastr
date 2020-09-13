@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 import cv2
-from turbojpeg import TurboJPEG
-import gdcm
+#from turbojpeg import TurboJPEG
+# import gdcm
 import zipfile
 from io import StringIO
 # conda install gdcm -c conda-forge
@@ -23,7 +23,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 BASE_PATH = '/Users/dhanley/Documents/rsnastr/data/dicom'
 JPEG_PATH = '/Users/dhanley/Documents/rsnastr/data/jpeg'
-jpeg = TurboJPEG()
+BASE_PATH = '/data/rsnastr/data'
+JPEG_PATH = '/data/rsnastr/data/jpeg'
+#jpeg = TurboJPEG()
 print(os.listdir(BASE_PATH ))
 
 def turbodump(f, img):
@@ -115,21 +117,23 @@ def process_meta(img_path):
             col_dict[col].append(str(getattr(dicom_object, col)))
 
 
-def process_pixel_zip(img_path):
+def process_pixel_zip(filename):
     if 'dcm' in filename:
         with z.open(filename) as f:
             # Read dicom
             dicom_object = pydicom.dcmread(f)
             # Convert to jpeg and write to disk
-            out_fname = img_path.replace('dicom', JPEG_PATH).replace('.dcm', '.jpg')
+            out_fname = f'{JPEG_PATH}/{filename}'.replace('.dcm', '.jpg')
+            # out_fname = img_path.replace('dicom', JPEG_PATH).replace('.dcm', '.jpg')
             fpath = Path(out_fname).parents[0]
             fpath.mkdir(parents=True, exist_ok=True)
             img = bsb_window(dicom_object)
             cv2.imwrite(out_fname, img)
 
-z = zipfile.ZipFile(f'{BASE_PATH}/../dicom.zip')    
+# test/13a9d0362d9f/3d40ade23860/fcb07347fc83.dcm
+z = zipfile.ZipFile(f'{BASE_PATH}/rsna-str-pulmonary-embolism-detection.zip')    
+print(f'Sample image dir : {z.namelist()[1500]}')
 
-            
 # Process train meta data
 with ThreadPoolExecutor() as threads:
    threads.map(process_pixel_zip, z.namelist())   
