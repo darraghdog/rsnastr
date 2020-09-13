@@ -1,5 +1,5 @@
 ## RSNA-STR Pulmonary Embolism Detection
 
 This is the code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection) challenge.
-   
-![](https://www.kaggleusercontent.com/kf/42556265/eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0..gnkq8V3Uz2ag_BC4VE5x1A.Rl3jZ5M4TNKRy4cNxUtaL5MU7H0oJNEWFbQaW7-SdQ3Y16ctgijJdpt1KFTwQodq-4MJoY7yD-Zuv-JwuPrSQUlOKbikZc16pCyD3Tb1Fs5JDsYmd3uuG2TKYdMqEj0mIOjIFy0LI29ZM_YXmAIj86O1zn2Nmb0YlKOnyNFUY2JBP2idgpxhC8UeANwHd1WgVB_6aUC58sbc7kdYH8490nzsdqSURy_VZogjh-v4UZ9Vk0omX9TK1bw4i2hwqZ9jzFPgCWgTxutw05Y-f0JO4f1haPYowYFlG2RyYUZgwrMihxGAJ9UGFMXrHGQQEcF7qMVBzq-aEAJvYHPcint3yUvExailostM6s9csMq4e9o9IQE3DmbKnRNlYJsTl0_wnZabcBhYRSpKvi3GVGcys5GjSnXgTHAvfjBuQKBc8RiNivKKigH_urEiMFl2vS5mNHY-CY1czXV8fHoTmmLKF-ud9Jlthf7sPbqn-lfn3AmDCXJMaSDqw86d__5getmPELOoJYghqzviHuX5atPMcHrkw_dbk89yuGtjROvi2twW8Wefp5o4ykdJromB2BaqucZvLSD5xlHWGczTDw03rwJ3msTdWrd8cel4uVgaa-gq_8IvAVTDdWlworME5pv5X-AfNFzp_0RErxaJ8Z7fqw.Tm62_mODZGLPCf5yaPyxWg/__results___files/__results___11_0.png)
+  
+![](figs/scan.png?raw=true "Optional Title") 
