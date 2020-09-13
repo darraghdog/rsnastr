@@ -21,4 +21,4 @@ folddf = pd.DataFrame({ 'StudyInstanceUID': trndf['StudyInstanceUID'].unique()})
 folddf['fold'] = (folddf.index.values)%5
 
 # Write out 
-folddf.to_csv(f'{DATAPATH}/folds.csz.gz', compression='gzip', index = False)
+folddf.to_csv(f'{DATAPATH}/folds.csv.gz', compression='gzip', index = False)
