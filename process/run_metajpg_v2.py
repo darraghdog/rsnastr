@@ -26,7 +26,7 @@ os.chdir(PATH)
 from utils.logs import get_logger
 logger = get_logger('Create folds', 'INFO') 
 
-TYPE = 'ip' # 'bsb'
+TYPE = 'bsb' # 'ip' # 'bsb'
 BASE_PATH = f'{PATH}/data'
 JPEG_PATH = f'{PATH}/data/jpeg{TYPE}'
 try:
@@ -92,23 +92,15 @@ def bsb_window(img):
     return bsb_img
 
 # https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection/discussion/182930
-def windowip(img, WL=50, WW=350):
-    upper, lower = WL+WW//2, WL-WW//2
-    X = np.clip(img.copy(), lower, upper)
-    X = X - np.min(X)
-    X = X / np.max(X)
-    X = (X*255.0).astype('uint8')
-    return X
-
 def ip_window(img):
     '''
     RED channel / LUNG window / level=-600, width=1500
     GREEN channel / PE window / level=100, width=700
     BLUE channel / MEDIASTINAL window / level=40, width=400
     '''
-    lung_img1 = windowip(img, -600, 1500)
-    lung_img2 = windowip(img, 100, 700)
-    lung_img3 = windowip(img, 40, 400)
+    lung_img1 = window_image(img, -600, 1500)
+    lung_img2 = window_image(img, 100, 700)
+    lung_img3 = window_image(img, 40, 400)
     
     bsb_img = np.zeros((lung_img1.shape[0], lung_img1.shape[1], 3))
     bsb_img[:, :, 0] = lung_img1
@@ -164,11 +156,11 @@ def process_pixel_zip(filename):
             if TYPE == 'bsb':
                 img = bsb_window(dicom_object)
             if TYPE == 'ip':
-                img = ip_window(dicom_object.pixel_array)
-            cv2.imwrite(out_fname, img)
+                img = ip_window(dicom_object)
+            cv2.imwrite(out_fname, img[:,:,::-1])
             
             
-            filename = z.namelist()[100]
+#filename = 'dicom/train/0dcb58a69743/59598f169a63/1911bab9f095.dcm'
 
 logger.info('Start extracting jpeg')
 if platform.system() == 'Darwin':
@@ -184,8 +176,10 @@ else:
        threads.map(process_pixel_zip, z.namelist())   
     gc.collect()
 
-
-
-
+'''
+imgip = cv2.imread('/Users/dhanley/Downloads/tmp.jpg')[:,:,::-1]
+Image.fromarray(imgip)
+Image.fromarray(img)
+'''
 
 
