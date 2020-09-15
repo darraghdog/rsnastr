@@ -26,7 +26,7 @@ os.chdir(PATH)
 from utils.logs import get_logger
 logger = get_logger('Create folds', 'INFO') 
 
-TYPE = 'bsb' # 'ip' # 'bsb'
+TYPE = 'ip' # 'bsb'
 BASE_PATH = f'{PATH}/data'
 JPEG_PATH = f'{PATH}/data/jpeg{TYPE}'
 try:
