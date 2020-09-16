@@ -15,6 +15,7 @@ from albumentations.pytorch import ToTensor
 
 from PIL import Image
 import cv2
+import numpy as np
 import pandas as pd
 from turbojpeg import TurboJPEG
 jpeg = TurboJPEG()
@@ -27,6 +28,7 @@ class RSNAClassifierDataset(Dataset):
                  transforms, 
                  mode="train", 
                  fold = 0, 
+                 labeltype='all', 
                  imgsize=512,
                  crops_dir='jpeg',
                  data_path='data',
@@ -39,8 +41,12 @@ class RSNAClassifierDataset(Dataset):
         self.datadir = data_path
         self.data = self.loaddf()
         self.transform = transforms
+        self.label_smoothing = label_smoothing
         self.imgsize = imgsize
-        self.label_cols = list(RSNAWEIGHTS.keys())
+        self.labeltype = labeltype
+        self.label_cols = ['pe_present_on_image']
+        if self.labeltype=='all':
+            self.label_cols += list(RSNAWEIGHTS.keys())
 
     def __len__(self):
         return len(self.data)
@@ -49,7 +55,7 @@ class RSNAClassifierDataset(Dataset):
         
         samp = self.data.loc[idx]
         img_name = self.image_file(samp)
-                
+        print(img_name)
         img = self.turboload(img_name)  
         if self.imgsize != 512:
             img = cv2.resize(img,(self.imgsize,self.imgsize), interpolation=cv2.INTER_LINEAR)
@@ -57,11 +63,15 @@ class RSNAClassifierDataset(Dataset):
         if self.transform:       
             augmented = self.transform(image=img)
             img = augmented['image']   
-        if self.mode == 'train':
-            if 
-            labels = torch.tensor(
-                self.data.loc[idx, self.label_cols])
-            return {'image': img, 'labels': labels}    
+        if self.mode in ['train', 'valid']:
+            label = self.data.loc[idx, self.label_cols]
+            if self.mode == 'train': 
+                label = np.clip(label, self.label_smoothing, 1 - self.label_smoothing)
+            label = torch.tensor(label)
+            if self.labeltype=='all':
+                if label[0] == 0:
+                    label[:] = 0 # If image level pe has nothing, then remove the others. 
+            return {'image': img, 'labels': label}    
         else:      
             return {'image': img}
         
@@ -95,17 +105,16 @@ class RSNAClassifierDataset(Dataset):
                                 samp.SOPInstanceUID) + '.jpg'
 
 
-
 class nSampler(Sampler):
     r"""Samples elements sequentially, always in the same order.
     Arguments:
         data_source (Dataset): dataset to sample from
     """
 
-    def __init__(self, data, n = 4):
+    def __init__(self, data, n = 4, seed = None):
         self.data = data
         self.n = n
-        self.sampler = self.sample(self.data)
+        self.seed = seed
                 
     def __iter__(self):
         self.sampler = self.sample(self.data)
@@ -115,6 +124,6 @@ class nSampler(Sampler):
         return len(self.sampler)
     
     def sample(self, data):
-        return data.sample(frac=1) \
+        return data.sample(frac=1, random_state=self.seed) \
                         .groupby("StudyInstanceUID") \
                         .head(self.n).index.tolist()

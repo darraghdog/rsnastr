@@ -1,4 +1,5 @@
 # https://www.kaggle.com/teeyee314/rsna-pe-metadata-with-multithreading
+# https://storage.googleapis.com/kaggle-forum-message-attachments/1013486/17013/convert_to_jpeg_for_kaggle.py
 import numpy as np # linear algebra
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
 import platform

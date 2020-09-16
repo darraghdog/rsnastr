@@ -1,0 +1,28 @@
+{
+    "network": "RSNAClassifier",
+    "encoder": "tf_efficientnet_b5_ns",
+    "batches_per_epoch": 2500,
+    "size": 380,
+    "fp16": true,
+    "optimizer": {
+        "batch_size": 20,
+        "type": "SGD",
+        "momentum": 0.9,
+        "weight_decay": 1e-4,
+        "learning_rate": 0.01,
+        "nesterov": true,
+        "schedule": {
+            "type": "poly",
+            "mode": "step",
+            "epochs": 30,
+            "params": {"max_iter":  75100}
+        }
+    },
+    "normalize": {
+        "mean": [0.22363983, 0.18190407, 0.2523437 ],
+        "std": [0.32451536, 0.2956294,  0.31335256]
+    },
+    "losses": {
+        "BinaryCrossentropy": [0.5, 0.0368, 0.046, 0.0521, 0.0521, 0.0939, 0.0313, 0.0313, 0.1173, 0.0391]
+    }
+}
