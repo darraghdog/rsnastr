@@ -19,7 +19,6 @@ class WeightedLosses(nn.Module):
 class BinaryCrossentropy(BCEWithLogitsLoss):
     pass
 
-
 class FocalLoss(BinaryFocalLoss):
     def __init__(self, alpha=None, gamma=3, ignore_index=None, reduction="mean", normalized=False,
                  reduced_threshold=None):

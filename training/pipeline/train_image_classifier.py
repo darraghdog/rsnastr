@@ -2,12 +2,13 @@
 import argparse
 import json
 import os
+import sys
 from collections import defaultdict, OrderedDict
 import platform
 PATH = '/Users/dhanley/Documents/rsnastr' \
         if platform.system() == 'Darwin' else '/data/rsnastr'
 os.chdir(PATH)
-
+sys.path.append(PATH)
 from sklearn.metrics import log_loss
 from utils.logs import get_logger
 from utils.utils import RSNAWEIGHTS
@@ -28,7 +29,7 @@ import torch.distributed as dist
 from training.datasets.classifier_dataset import RSNAClassifierDataset, nSampler
 from training.zoo import classifiers
 from training.tools.utils import create_optimizer, AverageMeter
-from training.losses import WeightedLosses
+from training.losses import WeightedLosses, BinaryCrossentropy
 from training import losses
 
 from tensorboardX import SummaryWriter
@@ -84,7 +85,6 @@ arg('--label-smoothing', type=float, default=0.01)
 arg('--logdir', type=str, default='logs/b2_1820')
 arg('--distributed', action='store_true', default=False)
 arg('--freeze-epochs', type=int, default=0)
-arg('--size', type=int, default=300)
 arg("--local_rank", default=0, type=int)
 arg("--seed", default=777, type=int)
 arg("--opt-level", default='O1', type=str)
@@ -141,8 +141,6 @@ valsampler = nSampler(valdataset.data, 4, seed = args.seed)
 loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': True}#, 'collate_fn' : collatefn}
 valloader = DataLoader(valdataset, batch_size=args.batchsize, sampler = valsampler, **loaderargs)
 
-batch = next(iter(trnloader))
-
 model = classifiers.__dict__[conf['network']](encoder=conf['encoder'], \
                                               nclasses = conf['nclasses'])
 model = model.to(args.device)
@@ -155,7 +153,7 @@ for loss_name, weight in conf["losses"].items():
     weights.append(weight)
 
 # loss = WeightedLosses(loss_fn, weights)
-loss = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(weights))
+loss = BinaryCrossentropy(pos_weight=torch.tensor(weights))
 loss_functions = {"classifier_loss": loss}
 optimizer, scheduler = create_optimizer(conf['optimizer'], model)
 bce_best = 100
@@ -173,7 +171,7 @@ if args.from_zero:
     start_epoch = 0
 current_epoch = start_epoch
 
-if conf['fp16']:
+if conf['fp16'] and args.device != 'cpu':
     scaler = torch.cuda.amp.GradScaler()
     '''
         with autocast():
@@ -192,11 +190,6 @@ for epoch in range(start_epoch, max_epochs):
     '''
     Here we took out a load of things, check back 
     https://github.com/selimsef/dfdc_deepfake_challenge/blob/9925d95bc5d6545f462cbfb6e9f37c69fa07fde3/training/pipelines/train_classifier.py#L188-L201
-    '''
-    break
-
-    '''
-    Train
     '''
     losses = AverageMeter()
     max_iters = conf["batches_per_epoch"]
@@ -223,7 +216,8 @@ for epoch in range(start_epoch, max_epochs):
             loss.backward()
         losses.update(loss.item(), imgs.size(0))
         optimizer.step()
-        torch.cuda.synchronize()
+        optimizer.zero_grad()
+        if args.device != 'cpu': torch.cuda.synchronize()
         
         '''
         if only_valid:
@@ -236,21 +230,8 @@ for epoch in range(start_epoch, max_epochs):
         '''
         
         losses.update(loss.item(), imgs.size(0))
-        fake_losses.update(0 if fake_loss == 0 else fake_loss.item(), imgs.size(0))
-        real_losses.update(0 if real_loss == 0 else real_loss.item(), imgs.size(0))
-
-        optimizer.zero_grad()
-        pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, "loss": losses.avg,
-                          "fake_loss": fake_losses.avg, "real_loss": real_losses.avg})
-
-        if conf['fp16']:
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
-        else:
-            loss.backward()
-        torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), 1)
-        optimizer.step()
-        # torch.cuda.synchronize()
+        pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, "loss": losses.avg})
+        
         if conf["optimizer"]["schedule"]["mode"] in ("step", "poly"):
             scheduler.step(i + current_epoch * max_iters)
         if i == max_iters - 1:
