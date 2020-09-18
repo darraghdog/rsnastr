@@ -73,13 +73,13 @@ arg('--gpu', type=str, default='0', help='List of GPUs for parallel training, e.
 arg('--output-dir', type=str, default='weights/')
 arg('--resume', type=str, default='')
 arg('--fold', type=int, default=0)
-arg('--batchsize', type=int, default=8)
+arg('--batchsize', type=int, default=4)
 arg('--labeltype', type=str, default='all') # or 'single'
 arg('--imgsize', type=int, default=512)
 arg('--prefix', type=str, default='classifier_')
 arg('--data-dir', type=str, default="data")
 arg('--folds-csv', type=str, default='folds.csv.gz')
-arg('--crops-dir', type=str, default='jpeg')
+arg('--crops-dir', type=str, default='jpegip')
 arg('--label-smoothing', type=float, default=0.01)
 arg('--logdir', type=str, default='logs/b2_1820')
 arg('--distributed', action='store_true', default=False)
@@ -139,11 +139,14 @@ valdataset = RSNAClassifierDataset(mode="val",
                                      transforms=create_val_transforms(args.imgsize))
 trnsampler = nSampler(trndataset.data, 4, seed = None)
 valsampler = nSampler(valdataset.data, 4, seed = args.seed)
-loaderargs = {'num_workers' : 8}#, 'collate_fn' : collatefn}
+loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': True}#, 'collate_fn' : collatefn}
 trnloader = DataLoader(trndataset, batch_size=args.batchsize, sampler = trnsampler, **loaderargs)
 valloader = DataLoader(valdataset, batch_size=args.batchsize, sampler = valsampler, **loaderargs)
 
-model = classifiers.__dict__[conf['network']](encoder=conf['encoder'])
+batch = next(iter(trnloader))
+
+model = classifiers.__dict__[conf['network']](encoder=conf['encoder'], \
+                                              nclasses = conf['nclasses'])
 model = model.to(args.device)
 reduction = "mean"
 
@@ -195,24 +198,81 @@ Start here....
 
 
 for epoch in range(start_epoch, max_epochs):
-    data_train.reset(epoch, args.seed)
-    train_sampler = None
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(data_train)
-        train_sampler.set_epoch(epoch)
-    if epoch < args.freeze_epochs:
-        print("Freezing encoder!!!")
-        model.module.encoder.eval()
-        for p in model.module.encoder.parameters():
-            p.requires_grad = False
-    else:
-        model.module.encoder.train()
-        for p in model.module.encoder.parameters():
-            p.requires_grad = True
+    '''
+    Here we took out a load of things, check back 
+    https://github.com/selimsef/dfdc_deepfake_challenge/blob/9925d95bc5d6545f462cbfb6e9f37c69fa07fde3/training/pipelines/train_classifier.py#L188-L201
+    '''
 
-    train_data_loader = DataLoader(data_train, batch_size=batch_size, num_workers=args.workers,
-                                   shuffle=train_sampler is None, sampler=train_sampler, pin_memory=False,
-                                   drop_last=True)
+
+    '''
+    Train
+    '''
+    losses = AverageMeter()
+    fake_losses = AverageMeter()
+    real_losses = AverageMeter()
+    max_iters = conf["batches_per_epoch"]
+    print("training epoch {} lr {:.7f}".format(current_epoch, scheduler.get_lr()[0]))
+    model.train()
+    pbar = tqdm(enumerate(trnloader), total=max_iters, desc="Epoch {}".format(current_epoch), ncols=0)
+    if conf["optimizer"]["schedule"]["mode"] == "epoch":
+        scheduler.step(current_epoch)
+    for i, sample in pbar:
+        imgs = sample["image"].to(args.device)
+        labels = sample["labels"].to(args.device).float()
+        out_labels = model(imgs)
+        if only_valid:
+            valid_idx = sample["valid"].to(args.device).float() > 0
+            out_labels = out_labels[valid_idx]
+            labels = labels[valid_idx]
+            if labels.size(0) == 0:
+                continue
+
+        fake_loss = 0
+        real_loss = 0
+        fake_idx = labels > 0.5
+        real_idx = labels <= 0.5
+
+        ohem = conf.get("ohem_samples", None)
+        if torch.sum(fake_idx * 1) > 0:
+            fake_loss = loss_functions["classifier_loss"](out_labels[fake_idx], labels[fake_idx])
+        if torch.sum(real_idx * 1) > 0:
+            real_loss = loss_functions["classifier_loss"](out_labels[real_idx], labels[real_idx])
+        if ohem:
+            fake_loss = topk(fake_loss, k=min(ohem, fake_loss.size(0)), sorted=False)[0].mean()
+            real_loss = topk(real_loss, k=min(ohem, real_loss.size(0)), sorted=False)[0].mean()
+
+        loss = (fake_loss + real_loss) / 2
+        losses.update(loss.item(), imgs.size(0))
+        fake_losses.update(0 if fake_loss == 0 else fake_loss.item(), imgs.size(0))
+        real_losses.update(0 if real_loss == 0 else real_loss.item(), imgs.size(0))
+
+        optimizer.zero_grad()
+        pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, "loss": losses.avg,
+                          "fake_loss": fake_losses.avg, "real_loss": real_losses.avg})
+
+        if conf['fp16']:
+            with amp.scale_loss(loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
+        else:
+            loss.backward()
+        torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), 1)
+        optimizer.step()
+        torch.cuda.synchronize()
+        if conf["optimizer"]["schedule"]["mode"] in ("step", "poly"):
+            scheduler.step(i + current_epoch * max_iters)
+        if i == max_iters - 1:
+            break
+    pbar.close()
+    if local_rank == 0:
+        for idx, param_group in enumerate(optimizer.param_groups):
+            lr = param_group['lr']
+            summary_writer.add_scalar('group{}/lr'.format(idx), float(lr), global_step=current_epoch)
+        summary_writer.add_scalar('train/loss', float(losses.avg), global_step=current_epoch)
+
+
+
+
+
 
     train_epoch(current_epoch, loss_functions, model, optimizer, scheduler, train_data_loader, summary_writer, conf,
                 args.local_rank, args.only_changed_frames)

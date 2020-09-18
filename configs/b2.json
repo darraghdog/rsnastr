@@ -3,13 +3,14 @@
     "encoder": "tf_efficientnet_b2_ns",
     "batches_per_epoch": 2000,
     "size": 260,
+    "nclasses": 10,
     "fp16": true,
     "optimizer": {
         "batch_size": 32,
-        "type": "SGD",
+        "type": "Adam",
         "momentum": 0.9,
         "weight_decay": 1e-5,
-        "learning_rate": 0.00002,
+        "learning_rate": 0.00005,
         "schedule": {
             "type": "poly",
             "mode": "step",

@@ -55,10 +55,11 @@ class RSNAClassifierDataset(Dataset):
         
         samp = self.data.loc[idx]
         img_name = self.image_file(samp)
-        print(img_name)
+        # print(img_name)
+        # img_name ='data/jpeg/train/31746ab5e9bc/4308f361d8a4/b96d38eec625.jpg'
         img = self.turboload(img_name)  
         if self.imgsize != 512:
-            img = cv2.resize(img,(self.imgsize,self.imgsize), interpolation=cv2.INTER_LINEAR)
+            img = cv2.resize(img,(self.imgsize,self.imgsize), interpolation=cv2.INTER_AREA)
         
         if self.transform:       
             augmented = self.transform(image=img)

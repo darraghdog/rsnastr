@@ -104,12 +104,12 @@ class GlobalWeightedAvgPool2d(nn.Module):
 
 
 class RSNAClassifier(nn.Module):
-    def __init__(self, encoder, dropout_rate=0.0) -> None:
+    def __init__(self, encoder, nclasses, dropout_rate=0.0) -> None:
         super().__init__()
         self.encoder = encoder_params[encoder]["init_op"]()
         self.avg_pool = AdaptiveAvgPool2d((1, 1))
         self.dropout = Dropout(dropout_rate)
-        self.fc = Linear(encoder_params[encoder]["features"], 1)
+        self.fc = Linear(encoder_params[encoder]["features"], nclasses)
 
     def forward(self, x):
         x = self.encoder.forward_features(x)
