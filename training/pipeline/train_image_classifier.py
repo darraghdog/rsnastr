@@ -62,7 +62,7 @@ Image.fromarray(img)
 Image.fromarray(aug(image=img)['image'])
 '''
 
-
+logger.info('Load args')
 parser = argparse.ArgumentParser("PyTorch Xview Pipeline")
 arg = parser.add_argument
 arg('--config', metavar='CONFIG_FILE', help='path to configuration file')
@@ -119,7 +119,7 @@ def create_val_transforms(size=300, HFLIPVAL = 1.0, TRANSPOSEVAL = 1.0):
                     std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
         ToTensor()
     ])
-
+logger.info('Create traindatasets')
 trndataset = RSNAClassifierDataset(mode="train",
                                        fold=args.fold,
                                        imgsize = args.imgsize,
@@ -128,6 +128,7 @@ trndataset = RSNAClassifierDataset(mode="train",
                                        label_smoothing=args.label_smoothing,
                                        folds_csv=args.folds_csv,
                                        transforms=create_train_transforms(args.imgsize))
+logger.info('Create valdatasets')
 valdataset = RSNAClassifierDataset(mode="val",
                                      fold=args.fold,
                                      crops_dir=args.crops_dir,
@@ -138,7 +139,7 @@ valdataset = RSNAClassifierDataset(mode="val",
 valsampler = nSampler(valdataset.data, 4, seed = args.seed)
 loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': True}#, 'collate_fn' : collatefn}
 valloader = DataLoader(valdataset, batch_size=args.batchsize, sampler = valsampler, **loaderargs)
-
+logger.info('Create model and optimisers')
 model = classifiers.__dict__[conf['network']](encoder=conf['encoder'], \
                                               nclasses = conf['nclasses'])
 model = model.to(args.device)
@@ -184,6 +185,7 @@ if conf['fp16'] and args.device != 'cpu':
 snapshot_name = "{}{}_{}_{}_".format(conf.get("prefix", args.prefix), conf['network'], conf['encoder'], args.fold)
 max_epochs = conf['optimizer']['schedule']['epochs']
 
+logger.info('Start training')
 for epoch in range(start_epoch, max_epochs):
     '''
     Here we took out a load of things, check back 
