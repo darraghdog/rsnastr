@@ -13,7 +13,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 import cv2
-from turbojpeg import TurboJPEG
+import sys
+# Make sure you install gdcm
+sys.path.append('/usr/local/lib/python3.6/dist-packages/')
+import gdcm
+
 # import gdcm
 import zipfile
 from io import StringIO
@@ -31,6 +35,7 @@ TYPE = 'ip' # 'bsb'
 BASE_PATH = f'{PATH}/data'
 JPEG_PATH = f'{PATH}/data/jpeg{TYPE}'
 try:
+    from turbojpeg import TurboJPEG
     jpeg = TurboJPEG()
 except:
     logger.info('Failed to load turbojpeg')
@@ -143,26 +148,32 @@ def process_meta(img_path):
 
 
 def process_pixel_zip(filename):
-    if 'dcm' in filename:
-        with z.open(filename) as f:
-            # Read dicom
-            dicom_object = pydicom.dcmread(f)
-            # Convert to jpeg and write to disk
-            if platform.system() == 'Darwin':
-                out_fname = filename.replace('dicom', JPEG_PATH).replace('.dcm', '.jpg')
-            else:
-                out_fname = f'{JPEG_PATH}/{filename}'.replace('.dcm', '.jpg')
-            fpath = Path(out_fname).parents[0]
-            fpath.mkdir(parents=True, exist_ok=True)
-            if TYPE == 'bsb':
-                img = bsb_window(dicom_object)
-            if TYPE == 'ip':
-                img = ip_window(dicom_object)
-            cv2.imwrite(out_fname, img[:,:,::-1])
-            
-            
-#filename = 'dicom/train/0dcb58a69743/59598f169a63/1911bab9f095.dcm'
+    try:
+        if 'dcm' in filename:
+            with z.open(filename) as f:
+                # Read dicom
+                dicom_object = pydicom.dcmread(f)
+                # Convert to jpeg and write to disk
+                if platform.system() == 'Darwin':
+                    out_fname = filename.replace('dicom', JPEG_PATH).replace('.dcm', '.jpg')
+                else:
+                    out_fname = f'{JPEG_PATH}/{filename}'.replace('.dcm', '.jpg')
+                fpath = Path(out_fname).parents[0]
+                fpath.mkdir(parents=True, exist_ok=True)
+                if TYPE == 'bsb':
+                    img = bsb_window(dicom_object)
+                if TYPE == 'ip':
+                    img = ip_window(dicom_object)
+                cv2.imwrite(out_fname, img[:,:,::-1])
+                logger.info(f'Success {filename}')
+    except Exception as e: 
+        logger.info(f'Failed {filename} : {e}')
 
+#filename = 'dicom/train/0dcb58a69743/59598f169a63/1911bab9f095.dcm'
+def filekey(ls, ftype = '.jpg'):
+    return [i.split('/')[-1].replace(ftype, '') for i in ls if ftype in i]
+
+# 1937447 total
 logger.info('Start extracting jpeg')
 if platform.system() == 'Darwin':
     z = zipfile.ZipFile(f'{BASE_PATH}/dicom.zip')     
@@ -171,10 +182,15 @@ if platform.system() == 'Darwin':
        threads.map(process_pixel_zip, z.namelist())   
     gc.collect()
 else:
-    z = zipfile.ZipFile(f'{BASE_PATH}/rsna-str-pulmonary-embolism-detection.zip')    
+    # May have to repeat this step a couple of times
+    z = zipfile.ZipFile(f'{BASE_PATH}/rsna-str-pulmonary-embolism-detection.zip')
+    jpgondisk = set(filekey(glob.glob(f'{JPEG_PATH}/*/*/*/*'), ftype = '.jpg'))
+    zfiles = [z for z in z.namelist() if \
+              (z.split('/')[-1].replace('.dcm', '') not in jpgondisk)]
+    zfiles = [z for z in zfiles if '.dcm' in z]
+    logger.info(f'There a {len(zfiles)} unprocessed files')
     # Process train meta data
-    with ThreadPoolExecutor() as threads:
-       threads.map(process_pixel_zip, z.namelist())   
+    with ThreadPoolExecutor() as threads:threads.map(process_pixel_zip, zfiles)   
     gc.collect()
 
 '''

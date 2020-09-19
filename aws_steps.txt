@@ -19,6 +19,7 @@ Remote
 ===================
 source activate pytorch_latest_p36
 
+
 # Mount the volume
 sudo mkdir /data
 sudo mount /dev/xvdf /data
@@ -36,3 +37,23 @@ sudo apt-get install -y libturbojpeg
 git config --global credential.helper store # so we only need to enter credentials once
 cd /data/rsnastr
 pip install -r requirements.txt 
+
+# conda if you want it
+wget https://repo.anaconda.com/archive/Anaconda3-2020.07-Linux-x86_64.sh
+bash Anaconda3-2020.07-Linux-x86_64.sh
+source ~/.bashrc
+
+# Install gdcm (aaaarrrgghhh!!)
+cd ~
+sudo apt-get update
+sudo apt install -y python-vtk6 libvtk6-dev cmake-curses-gui checkinstall swig libpython3.6-dev
+mkdir gdcm && cd gdcm && git clone --branch release git://git.code.sf.net/p/gdcm/gdcm
+mkdir build && cd build
+sudo cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS=-fPIC -DCMAKE_CXX_FLAGS=-fPIC -DGDCM_BUILD_SHARED_LIBS:BOOL=ON -DGDCM_WRAP_PYTHON=ON PYTHON_EXECUTABLE=/usr/local/bin/python3.6 PYTHON_INCLUDE_DIR=/usr/local/lib/python3.6/site-packages/ GDCM_BUILD_SHARED_LIBS=ON GDCM_USE_VTK=ON ~/gdcm/gdcm
+sudo cmake --build . --target install
+
+sudo cp /usr/local/lib/gdcm.py /usr/local/lib/python3.6/dist-packages/.
+sudo cp /usr/local/lib/gdcmswig.py /usr/local/lib/python3.6/dist-packages/.
+sudo cp /usr/local/lib/_gdcmswig.so /usr/local/lib/python3.6/dist-packages/.
+sudo cp /usr/local/lib/libgdcm* /usr/local/lib/python3.6/dist-packages/.
+sudo ldconfig

@@ -34,8 +34,6 @@ from training import losses
 
 from tensorboardX import SummaryWriter
 
-
-
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -191,6 +189,10 @@ for epoch in range(start_epoch, max_epochs):
     Here we took out a load of things, check back 
     https://github.com/selimsef/dfdc_deepfake_challenge/blob/9925d95bc5d6545f462cbfb6e9f37c69fa07fde3/training/pipelines/train_classifier.py#L188-L201
     '''
+    
+    '''
+    TRAIN
+    '''
     losses = AverageMeter()
     max_iters = conf["batches_per_epoch"]
     print("training epoch {} lr {:.7f}".format(current_epoch, scheduler.get_lr()[0]))
@@ -219,16 +221,6 @@ for epoch in range(start_epoch, max_epochs):
         optimizer.zero_grad()
         if args.device != 'cpu': torch.cuda.synchronize()
         
-        '''
-        if only_valid:
-            valid_idx = sample["valid"].to(args.device).float() > 0
-            out_labels = out_labels[valid_idx]
-            labels = labels[valid_idx]
-            if labels.size(0) == 0:
-                continue
-        
-        '''
-        
         losses.update(loss.item(), imgs.size(0))
         pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, "loss": losses.avg})
         
@@ -242,9 +234,51 @@ for epoch in range(start_epoch, max_epochs):
         lr = param_group['lr']
         summary_writer.add_scalar('group{}/lr'.format(idx), float(lr), global_step=current_epoch)
         summary_writer.add_scalar('train/loss', float(losses.avg), global_step=current_epoch)
-    '''
     model = model.eval()
 
+    '''
+    VALID
+    '''
+
+    probs = defaultdict(list)
+    targets = defaultdict(list)
+    with torch.no_grad():
+        for sample in tqdm(valdataset):
+            imgs = sample["image"].to(args.device)
+            img_names = sample["img_name"]
+            labels = sample["labels"].to(args.device).float()
+            out = model(imgs)
+            labels = labels.cpu().numpy()
+            preds = torch.sigmoid(out).detach().cpu().numpy()
+            for i in range(out.shape[0]):
+                img_id = img_names[i]
+                probs[img_id].append(preds[i].tolist())
+                targets[img_id].append(labels[i].tolist())
+    
+    '''
+    bce, probs, targets = validate(model, data_loader=data_val)
+    if args.local_rank == 0:
+        summary_writer.add_scalar('val/bce', float(bce), global_step=current_epoch)
+        if bce < bce_best:
+            print("Epoch {} improved from {} to {}".format(current_epoch, bce_best, bce))
+            if args.output_dir is not None:
+                torch.save({
+                    'epoch': current_epoch + 1,
+                    'state_dict': model.state_dict(),
+                    'bce_best': bce,
+                }, args.output_dir + snapshot_name + "_best_dice")
+            bce_best = bce
+            with open("predictions_{}.json".format(args.fold), "w") as f:
+                json.dump({"probs": probs, "targets": targets}, f)
+        torch.save({
+            'epoch': current_epoch + 1,
+            'state_dict': model.state_dict(),
+            'bce_best': bce_best,
+        }, args.output_dir + snapshot_name + "_last")
+        print("Epoch: {} bce: {}, bce_best: {}".format(current_epoch, bce, bce_best))
+        '''
+        
+    '''
     if args.local_rank == 0:
         torch.save({
             'epoch': current_epoch + 1,

@@ -72,9 +72,9 @@ class RSNAClassifierDataset(Dataset):
             if self.labeltype=='all':
                 if label[0] == 0:
                     label[:] = 0 # If image level pe has nothing, then remove the others. 
-            return {'image': img, 'labels': label}    
+            return {'img_name': img_name, 'image': img, 'labels': label}    
         else:      
-            return {'image': img}
+            return {'img_name': img_name, 'image': img}
         
     def loaddf(self):
         fname = 'train.csv.zip' if self.mode in ['train', 'val'] else 'test.csv.zip'
