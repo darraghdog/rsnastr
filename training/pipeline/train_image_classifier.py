@@ -121,6 +121,37 @@ def create_val_transforms(size=300, HFLIPVAL = 1.0, TRANSPOSEVAL = 1.0):
                     std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
         ToTensor()
     ])
+
+
+def validate(model, data_loader):
+    probs = []#defaultdict(list)
+    targets = []#defaultdict(list)
+    img_names = []
+    with torch.no_grad():
+        for sample in tqdm(valloader):
+            imgs = sample["image"].to(args.device)
+            img_names += sample["img_name"]
+            labels = sample["labels"].to(args.device).float()
+            out = model(imgs)
+            labels = labels.cpu().numpy()
+            preds = torch.sigmoid(out).detach().cpu().numpy()
+            targets.append(labels)
+            probs.append(preds)
+    probs = np.concatenate(probs, 0)
+    targets = np.concatenate(targets, 0).round()
+    neg_idx = targets < 0.5
+    pos_idx = targets > 0.5
+    neg_loss = log_loss(targets[neg_idx], probs[neg_idx], labels=[0, 1])
+    pos_loss = log_loss(targets[pos_idx], probs[pos_idx], labels=[0, 1])
+    neg_acc = (targets[neg_idx] == (probs[neg_idx] > 0.5).astype(np.int).flatten()).mean()
+    pos_acc = (targets[pos_idx] == (probs[pos_idx] > 0.5).astype(np.int).flatten()).mean()
+    logger.info(f'Neg loss {neg_loss:.4f} acc {neg_acc:.4f}; Pos loss {pos_loss:.4f} acc {pos_acc:.4f}')
+    probdf = pd.DataFrame({'img': img_names, 
+                           'label': targets.flatten(),
+                           'probs': probs.flatten()})
+    
+    return (neg_loss + pos_loss) / 2, (neg_acc + pos_acc) / 2, probdf
+
 logger.info('Create traindatasets')
 trndataset = RSNAClassifierDataset(mode="train",
                                        fold=args.fold,
@@ -132,7 +163,7 @@ trndataset = RSNAClassifierDataset(mode="train",
                                        folds_csv=args.folds_csv,
                                        transforms=create_train_transforms(conf['size']))
 logger.info('Create valdatasets')
-valdataset = RSNAClassifierDataset(mode="val",
+valdataset = RSNAClassifierDataset(mode="valid",
                                      fold=args.fold,
                                      crops_dir=args.crops_dir,
                                      classes = conf['classes'], 
@@ -141,7 +172,11 @@ valdataset = RSNAClassifierDataset(mode="val",
                                      folds_csv=args.folds_csv,
                                      transforms=create_val_transforms(conf['size']))
 
-valsampler = nSampler(valdataset.data, pe_weight = 0.66, nmin = 2, nmax = 4, seed = args.seed)
+valsampler = nSampler(valdataset.data, 
+                      pe_weight = conf['pe_ratio'], 
+                      nmin = conf['studynmin'], 
+                      nmax = conf['studynmax'], 
+                      seed = args.seed)
 loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': True}#, 'collate_fn' : collatefn}
 valloader = DataLoader(valdataset, batch_size=args.batchsize, sampler = valsampler, **loaderargs)
 logger.info('Create model and optimisers')
@@ -195,17 +230,21 @@ for epoch in range(start_epoch, max_epochs):
     ep_samps={'tot':0,'pos':0}
     losses = AverageMeter()
     max_iters = conf["batches_per_epoch"]
-    trnsampler = nSampler(trndataset.data, pe_weight = 0.66, nmin = 2, nmax = 4, seed = None)
+    trnsampler = nSampler(trndataset.data, 
+                          pe_weight = conf['pe_ratio'], 
+                          nmin = conf['studynmin'], 
+                          nmax = conf['studynmax'], 
+                          seed = None)
     cts = trndataset.data.iloc[trnsampler.sample(trndataset.data)].pe_present_on_image.value_counts()
-    if epoch == 0: logger.info(f'Epoch class balance:\n{cts}')
+    if current_epoch == 0: logger.info(f'Epoch class balance:\n{cts}')
     trnloader = DataLoader(trndataset, batch_size=args.batchsize, sampler = trnsampler, **loaderargs)
     model.train()
-    pbar = tqdm(enumerate(trnloader), total=max_iters, desc="Epoch {}".format(epoch), ncols=0)
-    if conf["optimizer"]["schedule"]["mode"] == "epoch":
+    pbar = tqdm(enumerate(trnloader), total=max_iters, desc="Epoch {}".format(current_epoch), ncols=0)
+    if conf["optimizer"]["schedule"]["mode"] == "current_epoch":
         scheduler.step(current_epoch)
     for i, sample in pbar:
         #break
-        epoch_img_names[epoch] += sample['img_name']
+        epoch_img_names[current_epoch] += sample['img_name']
         imgs = sample["image"].to(args.device)
         # logger.info(f'Mean {imgs.mean()} std {imgs.std()} ')
         labels = sample["labels"].to(args.device).float()
@@ -224,7 +263,8 @@ for epoch in range(start_epoch, max_epochs):
         losses.update(loss.item(), imgs.size(0))
         optimizer.zero_grad()
         # if args.device != 'cpu': torch.cuda.synchronize()
-        pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": epoch, "loss": losses.avg, 'seen_prev': seenratio })
+        pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, 
+                          "loss": losses.avg, 'seen_prev': seenratio })
         
         if conf["optimizer"]["schedule"]["mode"] in ("step", "poly"):
             scheduler.step(i + current_epoch * max_iters)
@@ -241,28 +281,8 @@ for epoch in range(start_epoch, max_epochs):
         summary_writer.add_scalar('group{}/lr'.format(idx), float(lr), global_step=current_epoch)
         summary_writer.add_scalar('train/loss', float(losses.avg), global_step=current_epoch)
     model = model.eval()
+    bce, acc, probdf = validate(model, valloader)
 
-    '''
-    VALID
-    '''
-    '''
-    probs = defaultdict(list)
-    targets = defaultdict(list)
-    with torch.no_grad():
-        for sample in tqdm(valdataset):
-            imgs = sample["image"].to(args.device)
-            img_names = sample["img_name"]
-            labels = sample["labels"].to(args.device).float()
-            out = model(imgs)
-            labels = labels.cpu().numpy()
-            preds = torch.sigmoid(out).detach().cpu().numpy()
-            for i in range(out.shape[0]):
-                img_id = img_names[i]
-                probs[img_id].append(preds[i].tolist())
-                targets[img_id].append(labels[i].tolist())
-    '''
-    '''
-    bce, probs, targets = validate(model, data_loader=data_val)
     if args.local_rank == 0:
         summary_writer.add_scalar('val/bce', float(bce), global_step=current_epoch)
         if bce < bce_best:
@@ -274,34 +294,11 @@ for epoch in range(start_epoch, max_epochs):
                     'bce_best': bce,
                 }, args.output_dir + snapshot_name + "_best_dice")
             bce_best = bce
-            with open("predictions_{}.json".format(args.fold), "w") as f:
-                json.dump({"probs": probs, "targets": targets}, f)
-        torch.save({
-            'epoch': current_epoch + 1,
-            'state_dict': model.state_dict(),
-            'bce_best': bce_best,
-        }, args.output_dir + snapshot_name + "_last")
+            probdf.to_csv(args.output_dir + snapshot_name + "_best_probs.csv", index = False)
         print("Epoch: {} bce: {}, bce_best: {}".format(current_epoch, bce, bce_best))
-        '''
-        
-    '''
-    if args.local_rank == 0:
-        torch.save({
-            'epoch': current_epoch + 1,
-            'state_dict': model.state_dict(),
-            'bce_best': bce_best,
-        }, args.output_dir + '/' + snapshot_name + "_last")
-        torch.save({
-            'epoch': current_epoch + 1,
-            'state_dict': model.state_dict(),
-            'bce_best': bce_best,
-        }, args.output_dir + snapshot_name + "_{}".format(current_epoch))
-        if (epoch + 1) % args.test_every == 0:
-            bce_best = evaluate_val(args, val_data_loader, bce_best, model,
-                                    snapshot_name=snapshot_name,
-                                    current_epoch=current_epoch,
-                                    summary_writer=summary_writer)
     current_epoch += 1
+    '''
+    VALID
     '''
     
     

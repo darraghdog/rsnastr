@@ -7,6 +7,7 @@
     "fp16": true,
     "studynmin": 2,
     "studynmax": 4,
+    "pe_ratio": 0.5,
     "optimizer": {
         "type": "Adam",
         "learning_rate": 0.0001,
