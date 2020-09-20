@@ -17,9 +17,7 @@
     "studynmax": 4,
     "optimizer": {
         "type": "Adam",
-        "momentum": 0.9,
-        "weight_decay": 1e-5,
-        "learning_rate": 0.00001,
+        "learning_rate": 0.00005,
         "schedule": {
             "type": "poly",
             "mode": "step",

@@ -83,8 +83,7 @@ def create_optimizer(optimizer_config, model, master_params=None):
                              nesterov=optimizer_config["nesterov"])
     elif optimizer_config["type"] == "Adam":
         optimizer = optim.Adam(params,
-                               lr=optimizer_config["learning_rate"],
-                               weight_decay=optimizer_config["weight_decay"])
+                               lr=optimizer_config["learning_rate"])
     elif optimizer_config["type"] == "FusedAdam":
         optimizer = FusedAdam(params,
                               lr=optimizer_config["learning_rate"],
