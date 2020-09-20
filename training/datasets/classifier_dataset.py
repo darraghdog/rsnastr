@@ -76,7 +76,7 @@ class RSNAClassifierDataset(Dataset):
             return {'img_name': img_name, 'image': img}
         
     def loaddf(self):
-        fname = 'train.csv.zip' if self.mode in ['train', 'val'] else 'test.csv.zip'
+        fname = 'train.csv.zip' if self.mode in ['train', 'valid'] else 'test.csv.zip'
         df = pd.read_csv(f'{self.datadir}/{fname}')
         # if we are on Darwin filter
         if platform.system() == 'Darwin':
