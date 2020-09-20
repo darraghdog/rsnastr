@@ -191,7 +191,6 @@ for epoch in range(start_epoch, max_epochs):
     '''
     TRAIN
     '''
-    break
     ep_samps={'tot':0,'pos':0}
     losses = AverageMeter()
     max_iters = conf["batches_per_epoch"]
