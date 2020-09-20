@@ -27,5 +27,7 @@ class FocalLoss(BinaryFocalLoss):
 def getLoss(ltype, weights):
     if ltype == "BinaryCrossentropy":
         return BinaryCrossentropy(weights)
+    if ltype == "BCEWithLogitsLoss":
+        return BCEWithLogitsLoss(weights)
     if ltype == "FocalLoss":
         return FocalLoss(weights)

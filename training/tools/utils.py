@@ -114,7 +114,7 @@ def create_optimizer(optimizer_config, model, master_params=None):
     elif optimizer_config["schedule"]["type"] == "linear":
         def linear_lr(it):
             return it * optimizer_config["schedule"]["params"]["alpha"] + optimizer_config["schedule"]["params"]["beta"]
-
+        
         scheduler = lr_scheduler.LambdaLR(optimizer, linear_lr)
 
     return optimizer, scheduler
