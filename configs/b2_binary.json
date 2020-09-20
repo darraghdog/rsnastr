@@ -22,6 +22,6 @@
         "std": [0.32451536, 0.2956294,  0.31335256]
     },
     "losses": {
-        "BinaryCrossentropy": [1.0]
+        "BCEWithLogitsLoss": [1.0]
     }
 }
