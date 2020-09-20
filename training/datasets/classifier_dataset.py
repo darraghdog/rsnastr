@@ -30,6 +30,7 @@ class RSNAClassifierDataset(Dataset):
                  fold = 0, 
                  labeltype='all', 
                  imgsize=512,
+                 classes=["pe_present_on_image"],
                  crops_dir='jpeg',
                  data_path='data',
                  label_smoothing=0.01,
@@ -38,15 +39,13 @@ class RSNAClassifierDataset(Dataset):
         self.fold = fold
         self.fold_csv = folds_csv
         self.crops_dir = crops_dir
+        self.classes = classes
         self.datadir = data_path
         self.data = self.loaddf()
         self.transform = transforms
         self.label_smoothing = label_smoothing
         self.imgsize = imgsize
         self.labeltype = labeltype
-        self.label_cols = ['pe_present_on_image']
-        if self.labeltype=='all':
-            self.label_cols += list(RSNAWEIGHTS.keys())
 
     def __len__(self):
         return len(self.data)
@@ -57,7 +56,7 @@ class RSNAClassifierDataset(Dataset):
         img_name = self.image_file(samp)
         # print(img_name)
         # img_name ='data/jpeg/train/31746ab5e9bc/4308f361d8a4/b96d38eec625.jpg'
-        img = self.turboload(img_name)  
+        img = self.turboload(img_name)
         if self.imgsize != 512:
             img = cv2.resize(img,(self.imgsize,self.imgsize), interpolation=cv2.INTER_AREA)
         
@@ -65,7 +64,7 @@ class RSNAClassifierDataset(Dataset):
             augmented = self.transform(image=img)
             img = augmented['image']   
         if self.mode in ['train', 'valid']:
-            label = self.data.loc[idx, self.label_cols]
+            label = self.data.loc[idx, self.classes]
             if self.mode == 'train': 
                 label = np.clip(label, self.label_smoothing, 1 - self.label_smoothing)
             label = torch.tensor(label)
@@ -98,14 +97,55 @@ class RSNAClassifierDataset(Dataset):
         return bgr_array[:,:,::-1]
     
     def image_file(self, samp):
+        dirtype = 'train' if self.mode != 'test' else 'test'
         return os.path.join(self.datadir, 
                                 self.crops_dir,
-                                self.mode,
+                                dirtype,
                                 samp.StudyInstanceUID,
                                 samp.SeriesInstanceUID,
                                 samp.SOPInstanceUID) + '.jpg'
 
+class nSampler(Sampler):
+    r"""Samples elements sequentially, always in the same order.
+    Arguments:
+        data_source (Dataset): dataset to sample from
+    """
 
+    def __init__(self, data, pe_weight = None, nmin = 2, nmax = 5, seed = None):
+        self.data = data
+        self.seed = seed
+        self.nmin = nmin
+        self.nmax = nmax
+        self.pe_weight = pe_weight
+                
+    def __iter__(self):
+        self.sampler = self.sample(self.data)
+        return iter(self.sampler)
+
+    def __len__(self):
+        return len(self.sampler)
+    
+    def sample(self, data):
+        # Sample from all studies
+        allsamp = self.data.sample(frac= 1, 
+                                random_state=self.seed) \
+                        .groupby("StudyInstanceUID") \
+                        .head(self.nmin).index.tolist()
+        totrows = data.iloc[allsamp].shape[0]
+        avgrows = data.iloc[allsamp].pe_present_on_image.mean()
+        samppos = int(totrows * (1- avgrows) * self.pe_weight)
+        # Upsample posotive images, but only take nmax from any single study
+        possamp = self.data.query('pe_present_on_image == 1') \
+                    .sample(frac= 1, random_state=self.seed) \
+                    .groupby("StudyInstanceUID") \
+                    .head(self.nmax)[:samppos] \
+                    .index.tolist()
+        epsamp = list(set(allsamp + possamp ))
+        
+        return epsamp
+
+
+'''
 class nSampler(Sampler):
     r"""Samples elements sequentially, always in the same order.
     Arguments:
@@ -128,3 +168,4 @@ class nSampler(Sampler):
         return data.sample(frac=1, random_state=self.seed) \
                         .groupby("StudyInstanceUID") \
                         .head(self.n).index.tolist()
+'''

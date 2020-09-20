@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import sys
+import itertools
 from collections import defaultdict, OrderedDict
 import platform
 PATH = '/Users/dhanley/Documents/rsnastr' \
@@ -29,7 +30,7 @@ import torch.distributed as dist
 from training.datasets.classifier_dataset import RSNAClassifierDataset, nSampler
 from training.zoo import classifiers
 from training.tools.utils import create_optimizer, AverageMeter
-from training.losses import WeightedLosses, BinaryCrossentropy
+from training.losses import getLoss
 from training import losses
 
 from tensorboardX import SummaryWriter
@@ -46,6 +47,11 @@ from albumentations.pytorch import ToTensor
 logger = get_logger('Train', 'INFO') 
 
 # Data loaders
+
+'''
+Issues : 
+    No such file or directory: 'data/jpegip/val/6897fa9de148/2bfbb7fd2e8b/c0f3cb036d06.jpg'
+'''
 
 '''
 aug = A.Compose([
@@ -74,7 +80,6 @@ arg('--resume', type=str, default='')
 arg('--fold', type=int, default=0)
 arg('--batchsize', type=int, default=4)
 arg('--labeltype', type=str, default='all') # or 'single'
-arg('--imgsize', type=int, default=512)
 arg('--prefix', type=str, default='classifier_')
 arg('--data-dir', type=str, default="data")
 arg('--folds-csv', type=str, default='folds.csv.gz')
@@ -90,14 +95,11 @@ arg("--test_every", type=int, default=1)
 arg('--from-zero', action='store_true', default=False)
 args = parser.parse_args()
 
-args.config = 'configs/b2.json'
+# args.config = 'configs/b2.json'
+# args.config = 'configs/b2_binary.json'
 conf = load_config(args.config)
 
 # Try using imagenet means
-mean_img = [0.22363983, 0.18190407, 0.2523437 ]
-std_img = [0.32451536, 0.2956294,  0.31335256]
-
-
 def create_train_transforms(size=300):
     return A.Compose([
         #A.HorizontalFlip(p=0.5),   # right/left
@@ -122,44 +124,38 @@ def create_val_transforms(size=300, HFLIPVAL = 1.0, TRANSPOSEVAL = 1.0):
 logger.info('Create traindatasets')
 trndataset = RSNAClassifierDataset(mode="train",
                                        fold=args.fold,
-                                       imgsize = args.imgsize,
+                                       imgsize = conf['size'],
                                        crops_dir=args.crops_dir,
+                                       classes = conf['classes'], 
                                        data_path=args.data_dir,
                                        label_smoothing=args.label_smoothing,
                                        folds_csv=args.folds_csv,
-                                       transforms=create_train_transforms(args.imgsize))
+                                       transforms=create_train_transforms(conf['size']))
 logger.info('Create valdatasets')
 valdataset = RSNAClassifierDataset(mode="val",
                                      fold=args.fold,
                                      crops_dir=args.crops_dir,
-                                     imgsize = args.imgsize,
+                                     classes = conf['classes'], 
+                                     imgsize = conf['size'],
                                      data_path=args.data_dir,
                                      folds_csv=args.folds_csv,
-                                     transforms=create_val_transforms(args.imgsize))
-valsampler = nSampler(valdataset.data, 4, seed = args.seed)
+                                     transforms=create_val_transforms(conf['size']))
+
+valsampler = nSampler(valdataset.data, pe_weight = 0.66, nmin = 2, nmax = 4, seed = args.seed)
 loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': True}#, 'collate_fn' : collatefn}
 valloader = DataLoader(valdataset, batch_size=args.batchsize, sampler = valsampler, **loaderargs)
 logger.info('Create model and optimisers')
 model = classifiers.__dict__[conf['network']](encoder=conf['encoder'], \
-                                              nclasses = conf['nclasses'])
+                                              nclasses = len(conf['classes']) )
 model = model.to(args.device)
 reduction = "mean"
 
-loss_fn = []
-weights = []
-for loss_name, weight in conf["losses"].items():
-    loss_fn.append(losses.__dict__[loss_name](reduction=reduction).cuda())
-    weights.append(weight)
-
-# loss = WeightedLosses(loss_fn, weights)
-loss = BinaryCrossentropy(pos_weight=torch.tensor(weights))
+losstype = list(conf['losses'].keys())[0]
+weights = list(conf['losses'].values())[0]
+loss = getLoss(losstype, torch.tensor(weights))
 loss_functions = {"classifier_loss": loss}
 loss_functions["classifier_loss"] = loss_functions["classifier_loss"].to(args.device)
 optimizer, scheduler = create_optimizer(conf['optimizer'], model)
-bce_best = 100
-start_epoch = 0
-batch_size = conf['optimizer']['batch_size']
-
 bce_best = 100
 start_epoch = 0
 batch_size = conf['optimizer']['batch_size']
@@ -173,20 +169,19 @@ current_epoch = start_epoch
 
 if conf['fp16'] and args.device != 'cpu':
     scaler = torch.cuda.amp.GradScaler()
-    '''
-        with autocast():
-            y_pred = model(x_batch.to(device), attention_mask=(x_batch>0).to(device), labels=None)[0]
-            loss =  F.binary_cross_entropy_with_logits(y_pred,y_batch.to(device))
-        scaler.scale(loss).backward()
-        if (i+1) % accumulation_steps == 0:             # Wait for several backward steps
-            scaler.step(optimizer)
-            scaler.update()
-    '''
     
 snapshot_name = "{}{}_{}_{}_".format(conf.get("prefix", args.prefix), conf['network'], conf['encoder'], args.fold)
 max_epochs = conf['optimizer']['schedule']['epochs']
 
 logger.info('Start training')
+epoch_img_names = defaultdict(list)
+
+'''
+alldf = pd.read_csv('data/train.csv.zip')
+allsampler = nSampler(alldf, pe_weight = 0.66, nmin = 2, nmax = 4, seed = None)
+len(allsampler.sample(alldf)) * 0.8
+'''
+
 for epoch in range(start_epoch, max_epochs):
     '''
     Here we took out a load of things, check back 
@@ -199,13 +194,14 @@ for epoch in range(start_epoch, max_epochs):
     losses = AverageMeter()
     max_iters = conf["batches_per_epoch"]
     print("training epoch {} lr {:.7f}".format(current_epoch, scheduler.get_lr()[0]))
-    trnsampler = nSampler(trndataset.data, 4, seed = None)
+    trnsampler = nSampler(trndataset.data, pe_weight = 0.66, nmin = 2, nmax = 4, seed = None)
     trnloader = DataLoader(trndataset, batch_size=args.batchsize, sampler = trnsampler, **loaderargs)
     model.train()
     pbar = tqdm(enumerate(trnloader), total=max_iters, desc="Epoch {}".format(current_epoch), ncols=0)
     if conf["optimizer"]["schedule"]["mode"] == "epoch":
         scheduler.step(current_epoch)
     for i, sample in pbar:
+        epoch_img_names[epoch] += sample['img_name']
         imgs = sample["image"].to(args.device)
         labels = sample["labels"].to(args.device).float()
         if conf['fp16'] and args.device != 'cpu':
@@ -232,6 +228,11 @@ for epoch in range(start_epoch, max_epochs):
         if i == max_iters - 1:
             break
     pbar.close()
+    if epoch > 0:
+        seen = set(epoch_img_names[epoch]).intersection(
+            set(itertools.chain(*[epoch_img_names[i] for i in range(epoch)])))
+        seenratio = len(seen)/len(epoch_img_names[epoch])
+        logger.info(f'Ratio seen in previous epochs : {seenratio}')
 
     for idx, param_group in enumerate(optimizer.param_groups):
         lr = param_group['lr']

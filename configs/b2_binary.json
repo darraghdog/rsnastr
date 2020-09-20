@@ -3,15 +3,7 @@
     "encoder": "tf_efficientnet_b2_ns",
     "batches_per_epoch": 300,
     "size": 320,
-    "classes": ["pe_present_on_image", 
-                "indeterminate", 
-                "chronic_pe", 
-                "acute_and_chronic_pe", 
-                "central_pe", 
-                "leftsided_pe", 
-                "rightsided_pe", 
-                "rv_lv_ratio_gte_1", 
-                "rv_lv_ratio_lt_1"],
+    "classes": ["pe_present_on_image"],
     "fp16": true,
     "studynmin": 2,
     "studynmax": 4,
@@ -32,6 +24,6 @@
         "std": [0.32451536, 0.2956294,  0.31335256]
     },
     "losses": {
-        "BinaryCrossentropy": [0.5, 0.046, 0.0521, 0.0521, 0.0939, 0.0313, 0.0313, 0.1173, 0.0391]
+        "BinaryCrossentropy": [1.0]
     }
 }
