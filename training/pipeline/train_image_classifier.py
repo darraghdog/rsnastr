@@ -191,11 +191,14 @@ for epoch in range(start_epoch, max_epochs):
     '''
     TRAIN
     '''
+    break
     ep_samps={'tot':0,'pos':0}
     losses = AverageMeter()
     max_iters = conf["batches_per_epoch"]
     print("training epoch {} lr {:.7f}".format(current_epoch, scheduler.get_lr()[0]))
     trnsampler = nSampler(trndataset.data, pe_weight = 0.66, nmin = 2, nmax = 4, seed = None)
+    cts = trndataset.data.iloc[trnsampler.sample(trndataset.data)].pe_present_on_image.value_counts()
+    logger.info(f'Epoch class balance:\n{cts}')
     trnloader = DataLoader(trndataset, batch_size=args.batchsize, sampler = trnsampler, **loaderargs)
     model.train()
     pbar = tqdm(enumerate(trnloader), total=max_iters, desc="Epoch {}".format(current_epoch), ncols=0)
