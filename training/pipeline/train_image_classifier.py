@@ -235,8 +235,11 @@ for epoch in range(start_epoch, max_epochs):
                           nmin = conf['studynmin'], 
                           nmax = conf['studynmax'], 
                           seed = None)
-    cts = trndataset.data.iloc[trnsampler.sample(trndataset.data)].pe_present_on_image.value_counts()
-    if current_epoch == 0: logger.info(f'Epoch class balance:\n{cts}')
+    if current_epoch == 0: 
+        trncts = trndataset.data.iloc[trnsampler.sample(trndataset.data)].pe_present_on_image.value_counts()
+        valcts = valdataset.data.iloc[valsampler.sample(valdataset.data)].pe_present_on_image.value_counts()
+        logger.info(f'Train class balance:\n{trncts}')
+        logger.info(f'Valid class balance:\n{valcts}')
     trnloader = DataLoader(trndataset, batch_size=args.batchsize, sampler = trnsampler, **loaderargs)
     model.train()
     pbar = tqdm(enumerate(trnloader), total=max_iters, desc="Epoch {}".format(current_epoch), ncols=0)
@@ -297,14 +300,3 @@ for epoch in range(start_epoch, max_epochs):
             probdf.to_csv(args.output_dir + snapshot_name + "_best_probs.csv", index = False)
         print("Epoch: {} bce: {}, bce_best: {}".format(current_epoch, bce, bce_best))
     current_epoch += 1
-    '''
-    VALID
-    '''
-    
-    
-    
-    
-    
-    
-    
-    

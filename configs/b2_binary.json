@@ -1,7 +1,7 @@
 {
     "network": "RSNAClassifier",
     "encoder": "tf_efficientnet_b2_ns",
-    "batches_per_epoch": 300,
+    "batches_per_epoch": 600,
     "size": 320,
     "classes": ["pe_present_on_image"],
     "fp16": true,
@@ -14,7 +14,7 @@
         "schedule": {
             "type": "poly",
             "mode": "step",
-            "epochs": 100,
+            "epochs": 200,
             "params": {"max_iter":  75100}
         }
     },
