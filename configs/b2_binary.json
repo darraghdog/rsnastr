@@ -9,11 +9,11 @@
     "studynmax": 4,
     "optimizer": {
         "type": "Adam",
-        "learning_rate": 0.00005,
+        "learning_rate": 0.0001,
         "schedule": {
             "type": "poly",
             "mode": "step",
-            "epochs": 20,
+            "epochs": 100,
             "params": {"max_iter":  75100}
         }
     },

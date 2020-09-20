@@ -181,6 +181,7 @@ alldf = pd.read_csv('data/train.csv.zip')
 allsampler = nSampler(alldf, pe_weight = 0.66, nmin = 2, nmax = 4, seed = None)
 len(allsampler.sample(alldf)) * 0.8
 '''
+seenratio=0  # Ratio of seen in images in previous epochs
 
 for epoch in range(start_epoch, max_epochs):
     '''
@@ -194,13 +195,12 @@ for epoch in range(start_epoch, max_epochs):
     ep_samps={'tot':0,'pos':0}
     losses = AverageMeter()
     max_iters = conf["batches_per_epoch"]
-    print("training epoch {} lr {:.7f}".format(current_epoch, scheduler.get_lr()[0]))
     trnsampler = nSampler(trndataset.data, pe_weight = 0.66, nmin = 2, nmax = 4, seed = None)
     cts = trndataset.data.iloc[trnsampler.sample(trndataset.data)].pe_present_on_image.value_counts()
-    logger.info(f'Epoch class balance:\n{cts}')
+    if epoch == 0: logger.info(f'Epoch class balance:\n{cts}')
     trnloader = DataLoader(trndataset, batch_size=args.batchsize, sampler = trnsampler, **loaderargs)
     model.train()
-    pbar = tqdm(enumerate(trnloader), total=max_iters, desc="Epoch {}".format(current_epoch), ncols=0)
+    pbar = tqdm(enumerate(trnloader), total=max_iters, desc="Epoch {}".format(epoch), ncols=0)
     if conf["optimizer"]["schedule"]["mode"] == "epoch":
         scheduler.step(current_epoch)
     for i, sample in pbar:
@@ -209,14 +209,10 @@ for epoch in range(start_epoch, max_epochs):
         imgs = sample["image"].to(args.device)
         # logger.info(f'Mean {imgs.mean()} std {imgs.std()} ')
         labels = sample["labels"].to(args.device).float()
-        ep_samps['tot'] += imgs.shape[0]
-        ep_samps['pos'] += labels[:,0].sum()
-        balance = (ep_samps['pos']/ep_samps['tot']).item()
         if conf['fp16'] and args.device != 'cpu':
             with autocast():
                 out = model(imgs)
-                loss = loss_functions["classifier_loss"](labels, out)
-
+                loss = loss_functions["classifier_loss"](out, labels)
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
@@ -228,8 +224,7 @@ for epoch in range(start_epoch, max_epochs):
         losses.update(loss.item(), imgs.size(0))
         optimizer.zero_grad()
         # if args.device != 'cpu': torch.cuda.synchronize()
-        pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, "loss": losses.avg,\
-                "balance": balance, 'lossbatch': loss.item() })
+        pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": epoch, "loss": losses.avg, 'seen_prev': seenratio })
         
         if conf["optimizer"]["schedule"]["mode"] in ("step", "poly"):
             scheduler.step(i + current_epoch * max_iters)
@@ -240,7 +235,6 @@ for epoch in range(start_epoch, max_epochs):
         seen = set(epoch_img_names[epoch]).intersection(
             set(itertools.chain(*[epoch_img_names[i] for i in range(epoch)])))
         seenratio = len(seen)/len(epoch_img_names[epoch])
-        logger.info(f'Ratio seen in previous epochs : {seenratio}')
 
     for idx, param_group in enumerate(optimizer.param_groups):
         lr = param_group['lr']
@@ -251,7 +245,7 @@ for epoch in range(start_epoch, max_epochs):
     '''
     VALID
     '''
-
+    '''
     probs = defaultdict(list)
     targets = defaultdict(list)
     with torch.no_grad():
@@ -266,7 +260,7 @@ for epoch in range(start_epoch, max_epochs):
                 img_id = img_names[i]
                 probs[img_id].append(preds[i].tolist())
                 targets[img_id].append(labels[i].tolist())
-    
+    '''
     '''
     bce, probs, targets = validate(model, data_loader=data_val)
     if args.local_rank == 0:
