@@ -207,13 +207,16 @@ for epoch in range(start_epoch, max_epochs):
         #break
         epoch_img_names[epoch] += sample['img_name']
         imgs = sample["image"].to(args.device)
+        # logger.info(f'Mean {imgs.mean()} std {imgs.std()} ')
         labels = sample["labels"].to(args.device).float()
         ep_samps['tot'] += imgs.shape[0]
         ep_samps['pos'] += labels[:,0].sum()
+        balance = (ep_samps['pos']/ep_samps['tot']).item()
         if conf['fp16'] and args.device != 'cpu':
             with autocast():
                 out = model(imgs)
                 loss = loss_functions["classifier_loss"](labels, out)
+
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
@@ -221,14 +224,12 @@ for epoch in range(start_epoch, max_epochs):
             out = model(imgs)
             loss = loss_functions["classifier_loss"](labels, out)
             loss.backward()
+            optimizer.step()
         losses.update(loss.item(), imgs.size(0))
-        optimizer.step()
         optimizer.zero_grad()
-        if args.device != 'cpu': torch.cuda.synchronize()
-        
-        losses.update(loss.item(), imgs.size(0))
+        # if args.device != 'cpu': torch.cuda.synchronize()
         pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, "loss": losses.avg,\
-                          "balance": ep_samps['pos']/ep_samps['tot'] })
+                "balance": balance, 'lossbatch': loss.item() })
         
         if conf["optimizer"]["schedule"]["mode"] in ("step", "poly"):
             scheduler.step(i + current_epoch * max_iters)
