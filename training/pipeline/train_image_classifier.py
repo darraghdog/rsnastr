@@ -191,6 +191,7 @@ for epoch in range(start_epoch, max_epochs):
     '''
     TRAIN
     '''
+    ep_samps={'tot':0,'pos':0}
     losses = AverageMeter()
     max_iters = conf["batches_per_epoch"]
     print("training epoch {} lr {:.7f}".format(current_epoch, scheduler.get_lr()[0]))
@@ -204,6 +205,8 @@ for epoch in range(start_epoch, max_epochs):
         epoch_img_names[epoch] += sample['img_name']
         imgs = sample["image"].to(args.device)
         labels = sample["labels"].to(args.device).float()
+        ep_samps['tot'] += imgs.shape[0]
+        ep_samps['pos'] += labels[0].sum()
         if conf['fp16'] and args.device != 'cpu':
             with autocast():
                 out = model(imgs)
@@ -221,7 +224,8 @@ for epoch in range(start_epoch, max_epochs):
         if args.device != 'cpu': torch.cuda.synchronize()
         
         losses.update(loss.item(), imgs.size(0))
-        pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, "loss": losses.avg})
+        pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, "loss": losses.avg,\
+                          "balance": ep_samps['pos']/ep_samps['tot'] })
         
         if conf["optimizer"]["schedule"]["mode"] in ("step", "poly"):
             scheduler.step(i + current_epoch * max_iters)
