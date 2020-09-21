@@ -51,8 +51,13 @@ logger = get_logger('Train', 'INFO')
 # Data loaders
 
 '''
-Issues : 
-    No such file or directory: 'data/jpegip/val/6897fa9de148/2bfbb7fd2e8b/c0f3cb036d06.jpg'
+To do :
+    Fix validation set per fold
+    Add percentage seen for pos and neg and studies
+    Save each of the best weights
+    Try average over folds
+    Fix scheduler
+    Add fold to weights and logs
 '''
 
 '''
