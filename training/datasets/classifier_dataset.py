@@ -53,6 +53,7 @@ class RSNAClassifierDataset(Dataset):
     def __getitem__(self, idx):
         
         samp = self.data.loc[idx]
+        study_pe = 0 if samp.negative_exam_for_pe == 1 else 0
         img_name = self.image_file(samp)
         # print(img_name)
         # img_name ='data/jpeg/train/31746ab5e9bc/4308f361d8a4/b96d38eec625.jpg'
@@ -71,7 +72,8 @@ class RSNAClassifierDataset(Dataset):
             if self.labeltype=='all':
                 if label[0] == 0:
                     label[:] = 0 # If image level pe has nothing, then remove the others. 
-            return {'img_name': img_name, 'image': img, 'labels': label}    
+            return {'img_name': img_name, 'studype': study_pe, 
+                    'image': img, 'labels': label}    
         else:      
             return {'img_name': img_name, 'image': img}
         
@@ -144,28 +146,42 @@ class nSampler(Sampler):
         
         return epsamp
 
-
-'''
-class nSampler(Sampler):
-    r"""Samples elements sequentially, always in the same order.
-    Arguments:
-        data_source (Dataset): dataset to sample from
+class valSeedSampler(Sampler):
+    r"""Sample N from each of the foloing for validation
+    1) Positive samples
+    2) Negative samples from positive studies
+    3) Images in negative studies
     """
 
-    def __init__(self, data, n = 4, seed = None):
+    def __init__(self, data, N = 5000, seed = None):
         self.data = data
-        self.n = n
         self.seed = seed
+        self.N = N
+        self.sampler = self.sample(self.data)
                 
     def __iter__(self):
-        self.sampler = self.sample(self.data)
         return iter(self.sampler)
 
     def __len__(self):
         return len(self.sampler)
     
     def sample(self, data):
-        return data.sample(frac=1, random_state=self.seed) \
-                        .groupby("StudyInstanceUID") \
-                        .head(self.n).index.tolist()
-'''
+        
+        #1) Positive samples
+        posimgsamp = self.data.query('negative_exam_for_pe == 0') \
+            .query('pe_present_on_image == 1') \
+            .sample(frac= 1, random_state=self.seed) \
+            .index.tolist()[:self.N]
+        #2) Negative samples from positive studies
+        negimgsamp = self.data.query('negative_exam_for_pe == 0') \
+            .query('pe_present_on_image == 0') \
+            .sample(frac= 1, random_state=self.seed) \
+            .index.tolist()[:self.N]
+        #3) Images in negative studies
+        negstdsamp = self.data.query('negative_exam_for_pe == 1') \
+            .sample(frac= 1, random_state=self.seed) \
+            .index.tolist()[:self.N]
+        # Sum them all to one
+        epsamp = list(negstdsamp + negimgsamp + posimgsamp )
+        
+        return epsamp

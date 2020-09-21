@@ -29,7 +29,7 @@ from torch.cuda.amp import autocast
 
 from tqdm import tqdm
 import torch.distributed as dist
-from training.datasets.classifier_dataset import RSNAClassifierDataset, nSampler
+from training.datasets.classifier_dataset import RSNAClassifierDataset, nSampler, valSeedSampler
 from training.zoo import classifiers
 from training.tools.utils import create_optimizer, AverageMeter
 from training.losses import getLoss
@@ -53,12 +53,12 @@ logger = get_logger('Train', 'INFO')
 '''
 To do :
     Add more augmentation
-    Fix validation set per fold
     Add percentage seen for pos and neg and studies
     Save each of the best weights
     Try average over folds
     Fix scheduler
     Add fold to weights and logs
+    Get a cycle up to test nmin and nmax
 '''
 
 '''
@@ -67,7 +67,6 @@ aug = A.Compose([
         A.VerticalFlip(p=1.),
         A.Transpose(p=0.),
     ])
-
 fname = 'data/jpeg/train/4f632056046b/03dbda10118a/53ccebd24e14.jpg'
 img = cv2.imread(fname)[:,:,::-1]
 img = cv2.resize(img, (360, 360))
@@ -132,35 +131,43 @@ def create_val_transforms(size=300, HFLIPVAL = 1.0, TRANSPOSEVAL = 1.0):
         ToTensor()
     ])
 
-
 def validate(model, data_loader):
     probs = []#defaultdict(list)
     targets = []#defaultdict(list)
+    studype = []
     img_names = []
     with torch.no_grad():
         for sample in tqdm(valloader):
             imgs = sample["image"].to(args.device)
             img_names += sample["img_name"]
-            labels = sample["labels"].to(args.device).float()
+            targets += sample["labels"].flatten().tolist()
+            studype += sample['studype'].flatten().tolist()
             out = model(imgs)
-            labels = labels.cpu().numpy()
             preds = torch.sigmoid(out).detach().cpu().numpy()
-            targets.append(labels)
             probs.append(preds)
     probs = np.concatenate(probs, 0)
-    targets = np.concatenate(targets, 0).round()
-    neg_idx = targets < 0.5
-    pos_idx = targets > 0.5
-    neg_loss = log_loss(targets[neg_idx], probs[neg_idx], labels=[0, 1])
-    pos_loss = log_loss(targets[pos_idx], probs[pos_idx], labels=[0, 1])
-    neg_acc = (targets[neg_idx] == (probs[neg_idx] > 0.5).astype(np.int).flatten()).mean()
-    pos_acc = (targets[pos_idx] == (probs[pos_idx] > 0.5).astype(np.int).flatten()).mean()
-    logger.info(f'Neg loss {neg_loss:.4f} acc {neg_acc:.4f}; Pos loss {pos_loss:.4f} acc {pos_acc:.4f}')
+    targets = np.array(targets).round()
+    studype = np.array(studype).round()
+    negimg_idx = (targets < 0.5) & (studype > 0.5)
+    posimg_idx = (targets > 0.5) & (studype > 0.5)
+    negstd_idx = (targets < 0.5) & (studype < 0.5)
+    
+    negimg_loss = log_loss(targets[negimg_idx], probs[negimg_idx], labels=[0, 1])
+    posimg_loss = log_loss(targets[posimg_idx], probs[posimg_idx], labels=[0, 1])
+    negstd_loss = log_loss(targets[negstd_idx], probs[negstd_idx], labels=[0, 1])
+    negimg_acc = (targets[negimg_idx] == (probs[negimg_idx] < 0.5).astype(np.int).flatten()).mean()
+    posimg_acc = (targets[posimg_idx] == (probs[posimg_idx] > 0.5).astype(np.int).flatten()).mean()
+    negstd_acc = (targets[negstd_idx] == (probs[negstd_idx] < 0.5).astype(np.int).flatten()).mean()
+    log = f'Negimg PosStudy loss {negimg_loss:.4f} acc {negimg_acc:.4f}; '
+    log += f'Posimg PosStudy loss {posimg_loss:.4f} acc {posimg_acc:.4f}; '
+    log += f'Negimg NegStudy loss {negstd_loss:.4f} acc {negstd_acc:.4f}'
+    logger.info(log)
     probdf = pd.DataFrame({'img': img_names, 
                            'label': targets.flatten(),
+                           'studype': targets.flatten(),
                            'probs': probs.flatten()})
     
-    return (neg_loss + pos_loss) / 2, (neg_acc + pos_acc) / 2, probdf
+    return (negimg_loss + posimg_loss + negstd_loss) / 3, (negimg_acc + posimg_acc + negstd_acc) / 3, probdf
 
 logger.info('Create traindatasets')
 trndataset = RSNAClassifierDataset(mode="train",
@@ -181,12 +188,8 @@ valdataset = RSNAClassifierDataset(mode="valid",
                                      data_path=args.data_dir,
                                      folds_csv=args.folds_csv,
                                      transforms=create_val_transforms(conf['size']))
+valsampler = valSeedSampler(valdataset.data, N = 5000, seed = args.seed)
 
-valsampler = nSampler(valdataset.data, 
-                      pe_weight = conf['pe_ratio'], 
-                      nmin = conf['studynmin'], 
-                      nmax = conf['studynmax'], 
-                      seed = args.seed)
 loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': True}#, 'collate_fn' : collatefn}
 valloader = DataLoader(valdataset, batch_size=args.batchsize, sampler = valsampler, **loaderargs)
 logger.info('Create model and optimisers')
