@@ -52,6 +52,7 @@ logger = get_logger('Train', 'INFO')
 
 '''
 To do :
+    Add more augmentation
     Fix validation set per fold
     Add percentage seen for pos and neg and studies
     Save each of the best weights
