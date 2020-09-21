@@ -151,7 +151,7 @@ def validate(model, data_loader):
     negimg_idx = (targets < 0.5) & (studype > 0.5)
     posimg_idx = (targets > 0.5) & (studype > 0.5)
     negstd_idx = (targets < 0.5) & (studype < 0.5)
-    
+
     negimg_loss = log_loss(targets[negimg_idx], probs[negimg_idx], labels=[0, 1])
     posimg_loss = log_loss(targets[posimg_idx], probs[posimg_idx], labels=[0, 1])
     negstd_loss = log_loss(targets[negstd_idx], probs[negstd_idx], labels=[0, 1])
@@ -166,7 +166,6 @@ def validate(model, data_loader):
                            'label': targets.flatten(),
                            'studype': targets.flatten(),
                            'probs': probs.flatten()})
-    
     return (negimg_loss + posimg_loss + negstd_loss) / 3, (negimg_acc + posimg_acc + negstd_acc) / 3, probdf
 
 logger.info('Create traindatasets')
@@ -189,9 +188,11 @@ valdataset = RSNAClassifierDataset(mode="valid",
                                      folds_csv=args.folds_csv,
                                      transforms=create_val_transforms(conf['size']))
 valsampler = valSeedSampler(valdataset.data, N = 5000, seed = args.seed)
-
-loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': True}#, 'collate_fn' : collatefn}
+logger.info(50*'-')
+logger.info(valdataset.data.loc[valsampler.sampler]['pe_present_on_image'].value_counts())
+loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': False}#, 'collate_fn' : collatefn}
 valloader = DataLoader(valdataset, batch_size=args.batchsize, sampler = valsampler, **loaderargs)
+
 logger.info('Create model and optimisers')
 model = classifiers.__dict__[conf['network']](encoder=conf['encoder'], \
                                               nclasses = len(conf['classes']) )

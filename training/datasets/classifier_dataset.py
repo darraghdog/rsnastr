@@ -53,7 +53,7 @@ class RSNAClassifierDataset(Dataset):
     def __getitem__(self, idx):
         
         samp = self.data.loc[idx]
-        study_pe = 0 if samp.negative_exam_for_pe == 1 else 0
+        study_pe = 0 if samp.negative_exam_for_pe == 1 else 1
         img_name = self.image_file(samp)
         # print(img_name)
         # img_name ='data/jpeg/train/31746ab5e9bc/4308f361d8a4/b96d38eec625.jpg'
@@ -119,7 +119,7 @@ class nSampler(Sampler):
         self.nmin = nmin
         self.nmax = nmax
         self.pe_weight = pe_weight
-                
+
     def __iter__(self):
         self.sampler = self.sample(self.data)
         return iter(self.sampler)
@@ -157,8 +157,8 @@ class valSeedSampler(Sampler):
         self.data = data
         self.seed = seed
         self.N = N
-        self.sampler = self.sample(self.data)
-                
+        self.sampler = self.sample(self.data)       
+
     def __iter__(self):
         return iter(self.sampler)
 
