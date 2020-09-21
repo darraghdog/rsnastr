@@ -7,7 +7,8 @@ from timm.models import skresnext50_32x4d
 from timm.models.dpn import dpn92, dpn131
 from timm.models.efficientnet import tf_efficientnet_b4_ns, tf_efficientnet_b3_ns, \
     tf_efficientnet_b5_ns, tf_efficientnet_b2_ns, tf_efficientnet_b6_ns, tf_efficientnet_b7_ns
-from timm.models.senet import seresnext50_32x4d
+from timm.models.senet import seresnext50_32x4d, seresnext101_32x4d
+from timm.models import resnext50_32x4d, resnext101_32x8d, resnext101_32x4d
 from torch import nn
 from torch.nn.modules.dropout import Dropout
 from torch.nn.modules.linear import Linear
@@ -62,9 +63,25 @@ encoder_params = {
         "features": 2304,
         "init_op": partial(tf_efficientnet_b6_ns, pretrained=True, drop_path_rate=0.4)
     },
+    "resnext50_32x4d": {
+        "features": 2048,
+        "init_op": partial(resnext50_32x4d, pretrained=True)
+    },
+    "resnext101_32x8d": {
+        "features": 2048,
+        "init_op": partial(resnext101_32x8d, pretrained=True)
+    },
+    "resnext101_32x4d": {
+        "features": 2048,
+        "init_op": partial(resnext101_32x4d, pretrained=True)
+    },
     "se50": {
         "features": 2048,
         "init_op": partial(seresnext50_32x4d, pretrained=True)
+    },
+    "se101": {
+        "features": 2048,
+        "init_op": partial(seresnext101_32x4d, pretrained=True)
     },
     "sk50": {
         "features": 2048,

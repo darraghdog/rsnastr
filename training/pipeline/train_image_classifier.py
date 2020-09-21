@@ -95,8 +95,10 @@ arg("--test_every", type=int, default=1)
 arg('--from-zero', action='store_true', default=False)
 args = parser.parse_args()
 
-# args.config = 'configs/b2.json'
-# args.config = 'configs/b2_binary.json'
+if False:
+    args.config = 'configs/b2.json'
+    args.config = 'configs/b2_binary.json'
+    args.config = 'configs/rnxt101_binary.json'
 conf = load_config(args.config)
 
 # Try using imagenet means
