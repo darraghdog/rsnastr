@@ -10,6 +10,8 @@ PATH = '/Users/dhanley/Documents/rsnastr' \
         if platform.system() == 'Darwin' else '/data/rsnastr'
 os.chdir(PATH)
 sys.path.append(PATH)
+import warnings
+warnings.filterwarnings("ignore")
 from sklearn.metrics import log_loss
 from utils.logs import get_logger
 from utils.utils import RSNAWEIGHTS
@@ -289,7 +291,7 @@ for epoch in range(start_epoch, max_epochs):
     if args.local_rank == 0:
         summary_writer.add_scalar('val/bce', float(bce), global_step=current_epoch)
         if bce < bce_best:
-            print("Epoch {} improved from {} to {}".format(current_epoch, bce_best, bce))
+            print("Epoch {} improved from {:.5f} to {:.5f}".format(current_epoch, bce_best, bce))
             if args.output_dir is not None:
                 torch.save({
                     'epoch': current_epoch + 1,
@@ -298,5 +300,5 @@ for epoch in range(start_epoch, max_epochs):
                 }, args.output_dir + snapshot_name + "_best_dice")
             bce_best = bce
             probdf.to_csv(args.output_dir + snapshot_name + "_best_probs.csv", index = False)
-        print("Epoch: {} bce: {}, bce_best: {}".format(current_epoch, bce, bce_best))
+        print("Epoch: {} bce: {:.5f}, bce_best: {:.5f}".format(current_epoch, bce, bce_best))
     current_epoch += 1
