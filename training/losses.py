@@ -3,6 +3,7 @@ from typing import Any
 from pytorch_toolbelt import losses
 from pytorch_toolbelt.losses import BinaryFocalLoss
 from torch import nn
+import torch.functional as F
 from torch.nn.modules.loss import BCEWithLogitsLoss
 
 class WeightedLosses(nn.Module):
