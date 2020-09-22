@@ -52,10 +52,8 @@ logger = get_logger('Train', 'INFO')
 
 '''
 To do :
-    *Focal loss
     *Add more augmentation
-    *Check we don't have sort sampler - shuffle it
-    *Check if larger batch size helps. 
+    *Check if larger batch size helps/ Up lr with accumulation
     Add percentage seen for pos and neg and studies
     Save each of the best weights
     Try average over folds
@@ -90,6 +88,7 @@ arg('--resume', type=str, default='')
 arg('--fold', type=int, default=0)
 arg('--batchsize', type=int, default=4)
 arg('--labeltype', type=str, default='all') # or 'single'
+arg('--augextra', type=str, default=True) # or 'single'
 arg('--prefix', type=str, default='classifier_')
 arg('--data-dir', type=str, default="data")
 arg('--folds-csv', type=str, default='folds.csv.gz')
@@ -111,19 +110,56 @@ if False:
     args.config = 'configs/rnxt101_binary.json'
 conf = load_config(args.config)
 
+'''
+from PIL import Image
+img = cv2.imread('data/jpegip/train/6842db0937cf/51a8ec9ed5a8/09b37a7c0524.jpg')
+Image.fromarray(img)
+
+aug = create_train_transforms(size = img.shape[0])
+augmented = aug(image=img)
+img = augmented['image']
+Image.fromarray(img)
+'''
+
+
 # Try using imagenet means
-def create_train_transforms(size=300):
-    return A.Compose([
-        #A.HorizontalFlip(p=0.5),   # right/left
-        A.VerticalFlip(p=0.5), 
-        A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, 
-                             rotate_limit=20, p=0.5, border_mode = cv2.BORDER_REPLICATE),
-        A.Cutout(num_holes=40, max_h_size=size//7, max_w_size=size//7, fill_value=128, p=0.5), 
-        #A.Transpose(p=0.5), # swing in -90 degrees
-        A.Normalize(mean=conf['normalize']['mean'], 
-                    std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
-        ToTensor()
-    ])
+if not args.augextra:
+    def create_train_transforms(size=300, distort = False):
+        return A.Compose([
+            #A.HorizontalFlip(p=0.5),   # right/left
+            A.VerticalFlip(p=0.5), 
+            A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, value = 0,
+                                 rotate_limit=20, p=0.5, border_mode = cv2.BORDER_CONSTANT),
+            # A.Cutout(num_holes=40, max_h_size=size//7, max_w_size=size//7, fill_value=128, p=0.5), 
+            #A.Transpose(p=0.5), # swing in -90 degrees
+            A.Resize(size, size, p=1), 
+            #A.Normalize(mean=conf['normalize']['mean'], 
+            #            std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
+            #ToTensor()
+        ])
+else:
+    def create_train_transforms(size=300, distort = False):
+        return A.Compose([
+            #A.HorizontalFlip(p=0.5),   # right/left
+            A.VerticalFlip(p=0.5), 
+            A.OneOf([
+                A.RandomCrop(int(size*0.8), int(size*0.8), p = 0.5), 
+                A.RandomCrop(int(size*0.9), int(size*0.9), p = 0.5), 
+            ], p=1.0),
+            A.OneOf([
+                A.ElasticTransform(p=0.5, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03),
+                A.GridDistortion(p=0.5),
+                A.OpticalDistortion(p=1, distort_limit=2, shift_limit=0.5),
+            ], p=0.5),
+            A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, value = 0,
+                                 rotate_limit=20, p=0.5, border_mode = cv2.BORDER_CONSTANT),
+            # A.Cutout(num_holes=40, max_h_size=size//7, max_w_size=size//7, fill_value=128, p=0.5), 
+            #A.Transpose(p=0.5), # swing in -90 degrees
+            A.Resize(size, size, p=1), 
+            #A.Normalize(mean=conf['normalize']['mean'], 
+            #            std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
+            #ToTensor()
+        ])
 
 def create_val_transforms(size=300, HFLIPVAL = 1.0, TRANSPOSEVAL = 1.0):
     return A.Compose([
@@ -193,6 +229,7 @@ valdataset = RSNAClassifierDataset(mode="valid",
                                      data_path=args.data_dir,
                                      folds_csv=args.folds_csv,
                                      transforms=create_val_transforms(conf['size']))
+
 valsampler = valSeedSampler(valdataset.data, N = 5000, seed = args.seed)
 logger.info(50*'-')
 logger.info(valdataset.data.loc[valsampler.sampler]['pe_present_on_image'].value_counts())
