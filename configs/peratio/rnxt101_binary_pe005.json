@@ -1,20 +1,20 @@
 {
     "network": "RSNAClassifier",
     "encoder": "resnext101_32x8d",
-    "batches_per_epoch": 800,
+    "batches_per_epoch": 600,
     "size": 320,
     "classes": ["pe_present_on_image"],
     "fp16": true,
     "studynmin": 2,
     "studynmax": 4,
-    "pe_ratio": 0.5,
+    "pe_ratio": 0.05,
     "optimizer": {
         "type": "Adam",
         "learning_rate": 0.00002,
         "schedule": {
             "type": "poly",
             "mode": "step",
-            "epochs": 50,
+            "epochs": 30,
             "params": {"max_iter":  75100}
         }
     },

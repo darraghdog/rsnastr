@@ -155,18 +155,21 @@ def validate(model, data_loader):
     negimg_loss = log_loss(targets[negimg_idx], probs[negimg_idx], labels=[0, 1])
     posimg_loss = log_loss(targets[posimg_idx], probs[posimg_idx], labels=[0, 1])
     negstd_loss = log_loss(targets[negstd_idx], probs[negstd_idx], labels=[0, 1])
-    negimg_acc = (targets[negimg_idx] == (probs[negimg_idx] < 0.5).astype(np.int).flatten()).mean()
+    negimg_acc = (targets[negimg_idx] == (probs[negimg_idx] > 0.5).astype(np.int).flatten()).mean()
     posimg_acc = (targets[posimg_idx] == (probs[posimg_idx] > 0.5).astype(np.int).flatten()).mean()
-    negstd_acc = (targets[negstd_idx] == (probs[negstd_idx] < 0.5).astype(np.int).flatten()).mean()
+    negstd_acc = (targets[negstd_idx] == (probs[negstd_idx] > 0.5).astype(np.int).flatten()).mean()
+    avg_acc = (negimg_acc + posimg_acc + negstd_acc) / 3
+    avg_loss= (negimg_loss + posimg_loss + negstd_loss) / 3
     log = f'Negimg PosStudy loss {negimg_loss:.4f} acc {negimg_acc:.4f}; '
     log += f'Posimg PosStudy loss {posimg_loss:.4f} acc {posimg_acc:.4f}; '
-    log += f'Negimg NegStudy loss {negstd_loss:.4f} acc {negstd_acc:.4f}'
+    log += f'Negimg NegStudy loss {negstd_loss:.4f} acc {negstd_acc:.4f}; '
+    log += f'Avg 3 loss {avg_loss:.4f} acc {avg_acc:.4f}'
     logger.info(log)
     probdf = pd.DataFrame({'img': img_names, 
                            'label': targets.flatten(),
                            'studype': targets.flatten(),
                            'probs': probs.flatten()})
-    return (negimg_loss + posimg_loss + negstd_loss) / 3, (negimg_acc + posimg_acc + negstd_acc) / 3, probdf
+    return avg_loss, avg_acc, probdf
 
 logger.info('Create traindatasets')
 trndataset = RSNAClassifierDataset(mode="train",
