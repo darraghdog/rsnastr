@@ -53,30 +53,36 @@ class RSNAClassifierDataset(Dataset):
 
     def __getitem__(self, idx):
         
-        samp = self.data.loc[idx]
-        study_pe = 0 if samp.negative_exam_for_pe == 1 else 1
-        img_name = self.image_file(samp)
-        # print(img_name)
-        # img_name ='data/jpeg/train/31746ab5e9bc/4308f361d8a4/b96d38eec625.jpg'
-        img = self.turboload(img_name)
-        if self.imgsize != 512:
-            img = cv2.resize(img,(self.imgsize,self.imgsize), interpolation=cv2.INTER_AREA)
+        try:
         
-        if self.transform:       
-            augmented = self.transform(image=img)
-            img = augmented['image']   
-        if self.mode in ['train', 'valid']:
-            label = self.data.loc[idx, self.classes]
-            if self.mode == 'train': 
-                label = np.clip(label, self.label_smoothing, 1 - self.label_smoothing)
-            label = torch.tensor(label)
-            if self.labeltype=='all':
-                if label[0] == 0:
-                    label[:] = 0 # If image level pe has nothing, then remove the others. 
-            return {'img_name': img_name, 'studype': study_pe, 
-                    'image': img, 'labels': label}    
-        else:      
-            return {'img_name': img_name, 'image': img}
+            samp = self.data.loc[idx]
+            study_pe = 0 if samp.negative_exam_for_pe == 1 else 1
+            img_name = self.image_file(samp)
+            # print(img_name)
+            # img_name ='data/jpeg/train/31746ab5e9bc/4308f361d8a4/b96d38eec625.jpg'
+            img = self.turboload(img_name)
+            if self.imgsize != 512:
+                img = cv2.resize(img,(self.imgsize,self.imgsize), interpolation=cv2.INTER_AREA)
+            
+            if self.transform:       
+                augmented = self.transform(image=img)
+                img = augmented['image']   
+            if self.mode in ['train', 'valid']:
+                label = self.data.loc[idx, self.classes]
+                if self.mode == 'train': 
+                    label = np.clip(label, self.label_smoothing, 1 - self.label_smoothing)
+                label = torch.tensor(label)
+                if self.labeltype=='all':
+                    if label[0] == 0:
+                        label[:] = 0 # If image level pe has nothing, then remove the others. 
+                return {'img_name': img_name, 'studype': study_pe, 
+                        'image': img, 'labels': label}    
+            else:      
+                return {'img_name': img_name, 'image': img}
+        
+        except Exception as e:
+            logger.info(f'Failed to load {img_name}...{e}')
+            return None
         
     def loaddf(self):
         fname = 'train.csv.zip' if self.mode in ['train', 'valid'] else 'test.csv.zip'
