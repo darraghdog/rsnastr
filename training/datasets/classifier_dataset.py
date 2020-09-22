@@ -1,4 +1,5 @@
 import os
+import random
 import torch
 from torch.backends import cudnn
 from torch.nn import DataParallel
@@ -143,6 +144,7 @@ class nSampler(Sampler):
                     .head(self.nmax)[:samppos] \
                     .index.tolist()
         epsamp = list(set(allsamp + possamp ))
+        random.shuffle(epsamp)
         
         return epsamp
 
