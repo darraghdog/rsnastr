@@ -244,7 +244,7 @@ reduction = "mean"
 
 losstype = list(conf['losses'].keys())[0]
 weights = list(conf['losses'].values())[0]
-loss = getLoss(losstype, torch.tensor(weights))
+loss = getLoss(losstype, torch.tensor(weights)).to(args.device)
 loss_functions = {"classifier_loss": loss}
 loss_functions["classifier_loss"] = loss_functions["classifier_loss"].to(args.device)
 optimizer, scheduler = create_optimizer(conf['optimizer'], model)
