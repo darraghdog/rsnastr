@@ -118,7 +118,7 @@ def collatefn(batch):
     # Remove error reads
     batchout = {\
         'image' : torch.stack([b['image'] for b in batch]),
-        'labels' : torch.cat([b['labels'] for b in batch]),
+        'labels' : torch.stack([b['labels'] for b in batch]),
         'studytype' : torch.tensor([b['studype'] for b in batch]),
         'img_name' : [b['img_name'] for b in batch]}
 
