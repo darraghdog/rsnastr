@@ -133,9 +133,9 @@ if not args.augextra:
             # A.Cutout(num_holes=40, max_h_size=size//7, max_w_size=size//7, fill_value=128, p=0.5), 
             #A.Transpose(p=0.5), # swing in -90 degrees
             A.Resize(size, size, p=1), 
-            #A.Normalize(mean=conf['normalize']['mean'], 
-            #            std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
-            #ToTensor()
+            A.Normalize(mean=conf['normalize']['mean'], 
+                        std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
+            ToTensor()
         ])
 else:
     def create_train_transforms(size=300, distort = False):
@@ -156,9 +156,9 @@ else:
             # A.Cutout(num_holes=40, max_h_size=size//7, max_w_size=size//7, fill_value=128, p=0.5), 
             #A.Transpose(p=0.5), # swing in -90 degrees
             A.Resize(size, size, p=1), 
-            #A.Normalize(mean=conf['normalize']['mean'], 
-            #            std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
-            #ToTensor()
+            A.Normalize(mean=conf['normalize']['mean'], 
+                        std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
+            ToTensor()
         ])
 
 def create_val_transforms(size=300, HFLIPVAL = 1.0, TRANSPOSEVAL = 1.0):
