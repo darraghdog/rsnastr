@@ -113,6 +113,11 @@ class RSNAClassifierDataset(Dataset):
                                 samp.StudyInstanceUID,
                                 samp.SeriesInstanceUID,
                                 samp.SOPInstanceUID) + '.jpg'
+    
+def collatefn(batch):
+    # Remove error reads
+    batch = [b for b in batch if b is not None]
+    return b
 
 class nSampler(Sampler):
     r"""Samples elements sequentially, always in the same order.

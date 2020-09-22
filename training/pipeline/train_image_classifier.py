@@ -29,7 +29,8 @@ from torch.cuda.amp import autocast
 
 from tqdm import tqdm
 import torch.distributed as dist
-from training.datasets.classifier_dataset import RSNAClassifierDataset, nSampler, valSeedSampler
+from training.datasets.classifier_dataset import RSNAClassifierDataset, \
+        nSampler, valSeedSampler, collatefn
 from training.zoo import classifiers
 from training.tools.utils import create_optimizer, AverageMeter
 from training.losses import getLoss
@@ -233,7 +234,7 @@ valdataset = RSNAClassifierDataset(mode="valid",
 valsampler = valSeedSampler(valdataset.data, N = 5000, seed = args.seed)
 logger.info(50*'-')
 logger.info(valdataset.data.loc[valsampler.sampler]['pe_present_on_image'].value_counts())
-loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': False}#, 'collate_fn' : collatefn}
+loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': False, 'collate_fn' : collatefn}
 valloader = DataLoader(valdataset, batch_size=args.batchsize, sampler = valsampler, **loaderargs)
 
 logger.info('Create model and optimisers')
