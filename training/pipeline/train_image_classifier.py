@@ -52,7 +52,10 @@ logger = get_logger('Train', 'INFO')
 
 '''
 To do :
-    Add more augmentation
+    *Focal loss
+    *Add more augmentation
+    *Check we don't have sort sampler - shuffle it
+    *Check if larger batch size helps. 
     Add percentage seen for pos and neg and studies
     Save each of the best weights
     Try average over folds
