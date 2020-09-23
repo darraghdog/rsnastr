@@ -42,7 +42,7 @@ class FocalBCEWithLogitsLoss(nn.Module):
         self.bce = BCEWithLogitsLoss().to(device)
 
     def forward(self, inputs, targets):
-        BCE_loss = bce(inputs, targets, reduce=False)
+        BCE_loss = self.bce(inputs, targets, reduce=False)
         pt = torch.exp(-BCE_loss)
         F_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
 
