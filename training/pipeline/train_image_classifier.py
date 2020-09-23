@@ -49,21 +49,6 @@ import albumentations as A
 from albumentations.pytorch import ToTensor
 logger = get_logger('Train', 'INFO') 
 
-# Data loaders
-
-'''
-To do :
-    Fix focal loss
-    Read up on other windowing approaches
-    *Check if larger batch size helps/ Up lr with accumulation
-    Add percentage seen for pos and neg and studies
-    Save each of the best weights
-    Try average over folds
-    Fix scheduler
-    Add fold to weights and logs
-    Get a cycle up to test nmin and nmax
-'''
-
 '''
 aug = A.Compose([
         # A.HorizontalFlip(p=1.), right/left
