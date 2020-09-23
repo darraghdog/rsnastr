@@ -336,7 +336,8 @@ for epoch in range(start_epoch, max_epochs):
                 loss = loss_functions["classifier_loss"](out, labels) * lam + \
                     loss_functions["classifier_loss"](out, labels) * (1. - lam)
             else:
-                loss = loss_functions["classifier_loss"](out, labels)            loss.backward()
+                loss = loss_functions["classifier_loss"](out, labels)            
+                loss.backward()
             optimizer.step()
         losses.update(loss.item(), imgs.size(0))
         optimizer.zero_grad()
