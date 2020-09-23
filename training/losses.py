@@ -32,17 +32,16 @@ class FocalLoss(BinaryFocalLoss):
                  reduced_threshold=None):
         super().__init__(alpha, gamma, ignore_index, reduction, normalized, reduced_threshold)
 
-
 class FocalBCEWithLogitsLoss(nn.Module):
     def __init__(self, device, alpha=1, gamma=2, reduce=True):
         super(FocalBCEWithLogitsLoss, self).__init__()
         self.alpha = alpha
         self.gamma = gamma
         self.reduce = reduce
-        self.bce = BCEWithLogitsLoss().to(device)
+        self.bce = BCEWithLogitsLoss(reduction = 'none').to(device)
 
     def forward(self, inputs, targets):
-        BCE_loss = self.bce(inputs, targets, reduce=False)
+        BCE_loss = self.bce(inputs, targets)
         pt = torch.exp(-BCE_loss)
         F_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
 
@@ -51,13 +50,12 @@ class FocalBCEWithLogitsLoss(nn.Module):
         else:
             return F_loss
 
-
-def getLoss(ltype, weights, device):
+def getLoss(ltype, device):
     if ltype == "BinaryCrossentropy":
-        return BinaryCrossentropy(weights).to(device)
+        return BinaryCrossentropy().to(device)
     if ltype == "BCEWithLogitsLoss":
-        return BCEWithLogitsLoss(weights).to(device)
+        return BCEWithLogitsLoss().to(device)
     if ltype == "FocalBCEWithLogitsLoss":
-        return FocalBCEWithLogitsLoss(weights, device).to(device)
+        return FocalBCEWithLogitsLoss(device).to(device)
     if ltype == "FocalLoss":
-        return FocalLoss(weights)
+        return FocalLoss()

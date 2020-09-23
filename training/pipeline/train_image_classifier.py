@@ -246,9 +246,7 @@ model = model.to(args.device)
 reduction = "mean"
 
 losstype = list(conf['losses'].keys())[0]
-weights = list(conf['losses'].values())[0]
-loss = getLoss(losstype, torch.tensor(weights), args.device)
-loss_functions = {"classifier_loss": loss}
+criterion = getLoss("BCEWithLogitsLoss", args.device)
 
 optimizer, scheduler = create_optimizer(conf['optimizer'], model)
 bce_best = 100
@@ -323,20 +321,20 @@ for epoch in range(start_epoch, max_epochs):
             with autocast():
                 out = model(imgs)
                 if args.mixup_beta > 0:
-                    loss = loss_functions["classifier_loss"](out, labels) * lam + \
-                            loss_functions["classifier_loss"](out, labels) * (1. - lam)
+                    loss = criterion(out, labels) * lam + \
+                            criterion(out, labels) * (1. - lam)
                 else:
-                    loss = loss_functions["classifier_loss"](out, labels) # 0.6710
+                    loss = criterion(out, labels) # 0.6710
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
         else:
             out = model(imgs)
             if args.mixup_beta > 0:
-                loss = loss_functions["classifier_loss"](out, labels) * lam + \
-                    loss_functions["classifier_loss"](out, labels) * (1. - lam)
+                loss = criterion(out, labels) * lam + \
+                    criterion(out, labels) * (1. - lam)
             else:
-                loss = loss_functions["classifier_loss"](out, labels)            
+                loss = criterion(out, labels)
                 loss.backward()
             optimizer.step()
         losses.update(loss.item(), imgs.size(0))
