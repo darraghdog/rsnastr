@@ -53,7 +53,8 @@ logger = get_logger('Train', 'INFO')
 
 '''
 To do :
-    *Add more augmentation
+    Fix focal loss
+    Read up on other windowing approaches
     *Check if larger batch size helps/ Up lr with accumulation
     Add percentage seen for pos and neg and studies
     Save each of the best weights
@@ -89,7 +90,8 @@ arg('--resume', type=str, default='')
 arg('--fold', type=int, default=0)
 arg('--batchsize', type=int, default=4)
 arg('--labeltype', type=str, default='all') # or 'single'
-arg('--augextra', type=str, default=True) # or 'single'
+arg('--augextra', type=str, default=False) # or 'single'
+arg('--mixup_beta', type=float, default = 0.)
 arg('--prefix', type=str, default='classifier_')
 arg('--data-dir', type=str, default="data")
 arg('--folds-csv', type=str, default='folds.csv.gz')
@@ -245,9 +247,9 @@ reduction = "mean"
 
 losstype = list(conf['losses'].keys())[0]
 weights = list(conf['losses'].values())[0]
-loss = getLoss(losstype, torch.tensor(weights)).to(args.device)
+loss = getLoss(losstype, torch.tensor(weights), args.device)
 loss_functions = {"classifier_loss": loss}
-loss_functions["classifier_loss"] = loss_functions["classifier_loss"].to(args.device)
+
 optimizer, scheduler = create_optimizer(conf['optimizer'], model)
 bce_best = 100
 start_epoch = 0
@@ -304,22 +306,37 @@ for epoch in range(start_epoch, max_epochs):
     if conf["optimizer"]["schedule"]["mode"] == "current_epoch":
         scheduler.step(current_epoch)
     for i, sample in pbar:
-        #break
         epoch_img_names[current_epoch] += sample['img_name']
         imgs = sample["image"].to(args.device)
         # logger.info(f'Mean {imgs.mean()} std {imgs.std()} ')
         labels = sample["labels"].to(args.device).float()
+        r = np.random.rand(1)
+        if args.mixup_beta > 0:
+            # generate mixed sample
+            lam = np.random.beta(args.mixup_beta, args.mixup_beta)
+            rand_index = torch.randperm(imgs.size()[0]).to(args.device)
+            labels_a = labels
+            labels_b = labels[rand_index]
+            imgs = lam * imgs + (1 - lam) * imgs[rand_index]
+            
         if conf['fp16'] and args.device != 'cpu':
             with autocast():
                 out = model(imgs)
-                loss = loss_functions["classifier_loss"](out, labels)
+                if args.mixup_beta > 0:
+                    loss = loss_functions["classifier_loss"](out, labels) * lam + \
+                            loss_functions["classifier_loss"](out, labels) * (1. - lam)
+                else:
+                    loss = loss_functions["classifier_loss"](out, labels) # 0.6710
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
         else:
             out = model(imgs)
-            loss = loss_functions["classifier_loss"](labels, out)
-            loss.backward()
+            if args.mixup_beta > 0:
+                loss = loss_functions["classifier_loss"](out, labels) * lam + \
+                    loss_functions["classifier_loss"](out, labels) * (1. - lam)
+            else:
+                loss = loss_functions["classifier_loss"](out, labels)            loss.backward()
             optimizer.step()
         losses.update(loss.item(), imgs.size(0))
         optimizer.zero_grad()

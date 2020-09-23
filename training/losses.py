@@ -6,6 +6,11 @@ from torch import nn
 import torch
 import torch.nn.functional as F
 from torch.nn.modules.loss import BCEWithLogitsLoss
+from typing import Optional
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
 class WeightedLosses(nn.Module):
     def __init__(self, losses, weights):
@@ -26,17 +31,18 @@ class FocalLoss(BinaryFocalLoss):
     def __init__(self, alpha=None, gamma=3, ignore_index=None, reduction="mean", normalized=False,
                  reduced_threshold=None):
         super().__init__(alpha, gamma, ignore_index, reduction, normalized, reduced_threshold)
-        
-        
+
+
 class FocalBCEWithLogitsLoss(nn.Module):
-    def __init__(self, alpha=1, gamma=2, reduce=True):
+    def __init__(self, device, alpha=1, gamma=2, reduce=True):
         super(FocalBCEWithLogitsLoss, self).__init__()
         self.alpha = alpha
         self.gamma = gamma
         self.reduce = reduce
+        self.bce = BCEWithLogitsLoss().to(device)
 
     def forward(self, inputs, targets):
-        BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduce=False)
+        BCE_loss = bce(inputs, targets, reduce=False)
         pt = torch.exp(-BCE_loss)
         F_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
 
@@ -45,12 +51,13 @@ class FocalBCEWithLogitsLoss(nn.Module):
         else:
             return F_loss
 
-def getLoss(ltype, weights):
+
+def getLoss(ltype, weights, device):
     if ltype == "BinaryCrossentropy":
-        return BinaryCrossentropy(weights)
+        return BinaryCrossentropy(weights).to(device)
     if ltype == "BCEWithLogitsLoss":
-        return BCEWithLogitsLoss(weights)
+        return BCEWithLogitsLoss(weights).to(device)
     if ltype == "FocalBCEWithLogitsLoss":
-        return FocalBCEWithLogitsLoss(weights)
+        return FocalBCEWithLogitsLoss(weights, device).to(device)
     if ltype == "FocalLoss":
         return FocalLoss(weights)
