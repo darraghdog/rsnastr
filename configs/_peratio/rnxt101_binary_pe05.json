@@ -1,7 +1,7 @@
 {
     "network": "RSNAClassifier",
     "encoder": "resnext101_32x8d",
-    "batches_per_epoch": 600,
+    "batches_per_epoch": 800,
     "size": 320,
     "classes": ["pe_present_on_image"],
     "fp16": true,
@@ -14,8 +14,8 @@
         "schedule": {
             "type": "poly",
             "mode": "step",
-            "epochs": 30,
-            "params": {"max_iter":  75100}
+            "epochs": 20,
+            "params": {"max_iter":  16000}
         }
     },
     "normalize": {
