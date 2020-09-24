@@ -3,6 +3,7 @@
 This is the code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection) challenge.
 
 #### To try
+    Try higher LR
     Fix ratio seen. 
     Add acumulation
     Gett RNN to check accuracy on negative pe
