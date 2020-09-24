@@ -81,7 +81,7 @@ class RSNAClassifierDataset(Dataset):
                 return {'img_name': img_name, 'image': img}
         
         except Exception as e:
-            logger.info(f'Failed to load {img_name}...{e}')
+            print(f'Failed to load {img_name}...{e}')
             return None
         
     def loaddf(self):
