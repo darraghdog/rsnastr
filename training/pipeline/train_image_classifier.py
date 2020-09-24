@@ -315,8 +315,8 @@ for epoch in range(start_epoch, max_epochs):
             if i % args.accum == 0:
                 optimizer.step()
                 optimizer.zero_grad()
-            scaler.step(optimizer)
-            scaler.update()
+                scaler.step(optimizer)
+                scaler.update()
         else:
             out = model(imgs)
             if args.mixup_beta > 0:
