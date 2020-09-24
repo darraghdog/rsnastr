@@ -3,7 +3,7 @@
 This is the code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection) challenge.
 
 #### To try
-    Fix focal loss
+    Fix focal loss - and try with different pe_weights
     Gett RNN to check accuracy on negative pe
     Smooth labels over time
     Read up on other windowing approaches
