@@ -4,6 +4,8 @@ This is the code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://ww
 
 #### To try
     Fix focal loss
+    Gett RNN to check accuracy on negative pe
+    Smooth labels over time
     Read up on other windowing approaches
     *Check if larger batch size helps/ Up lr with accumulation
     Add percentage seen for pos and neg and studies
