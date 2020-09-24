@@ -89,6 +89,7 @@ arg("--local_rank", default=0, type=int)
 arg("--seed", default=777, type=int)
 arg("--opt-level", default='O1', type=str)
 arg("--test_every", type=int, default=1)
+arg("--accum", type=int, default=1)
 arg('--from-zero', action='store_true', default=False)
 args = parser.parse_args()
 
@@ -311,6 +312,9 @@ for epoch in range(start_epoch, max_epochs):
                 else:
                     loss = criterion(out, labels) # 0.6710
             scaler.scale(loss).backward()
+            if i % args.accum == 0:
+                optimizer.step()
+                optimizer.zero_grad()
             scaler.step(optimizer)
             scaler.update()
         else:
@@ -321,9 +325,11 @@ for epoch in range(start_epoch, max_epochs):
             else:
                 loss = criterion(out, labels)
                 loss.backward()
-            optimizer.step()
+            if i % args.accum == 0:
+                optimizer.step()
         losses.update(loss.item(), imgs.size(0))
-        optimizer.zero_grad()
+        if i % args.accum == 0:
+            optimizer.zero_grad()
         # if args.device != 'cpu': torch.cuda.synchronize()
         pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, 
                           "loss": losses.avg, 'seen_prev': seenratio })
