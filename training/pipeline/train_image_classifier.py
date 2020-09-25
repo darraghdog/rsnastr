@@ -186,21 +186,21 @@ def validate(model, data_loader):
     try:
         negimg_loss = log_loss(targets[negimg_idx], probs[negimg_idx], labels=[0, 1])
         negimg_acc = (targets[negimg_idx] == (probs[negimg_idx] > 0.5).astype(np.int).flatten()).mean()
-    with Exception as e:
+    except Exception as e:
         negimg_loss = -1
         negimg_acc = -1
         logger.info(f'Negimg fails : {e}')
     try:
         posimg_loss = log_loss(targets[posimg_idx], probs[posimg_idx], labels=[0, 1])
         posimg_acc = (targets[posimg_idx] == (probs[posimg_idx] > 0.5).astype(np.int).flatten()).mean()
-    with Exception as e:
+    except Exception as e:
         posimg_loss = -1
         posimg_acc = -1
         logger.info(f'Posmg fails : {e}')
     try:
         negstd_loss = log_loss(targets[negstd_idx], probs[negstd_idx], labels=[0, 1])
         negstd_acc = (targets[negstd_idx] == (probs[negstd_idx] > 0.5).astype(np.int).flatten()).mean()
-    with Exception as e:
+    except Exception as e:
         negstd_loss = -1
         negstd_acc = -1
         logger.info(f'Posmg fails : {e}')
