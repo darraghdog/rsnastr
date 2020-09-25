@@ -117,10 +117,10 @@ class RSNAClassifierDataset(Dataset):
 def collatefn(batch):
     # Remove error reads
     batchout = {\
-        'image' : torch.stack([b['image'] for b in batch]),
-        'labels' : torch.stack([b['labels'] for b in batch]),
-        'studype' : torch.tensor([b['studype'] for b in batch]),
-        'img_name' : [b['img_name'] for b in batch]}
+        'image' : torch.stack([b['image'] for b in batch if b is not None]),
+        'labels' : torch.stack([b['labels'] for b in batch if b is not None]),
+        'studype' : torch.tensor([b['studype'] for b in batch if b is not None]),
+        'img_name' : [b['img_name'] for b in batch if b is not None]}
 
     return batchout
 
