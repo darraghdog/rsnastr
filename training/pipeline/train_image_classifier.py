@@ -35,8 +35,7 @@ from training.zoo import classifiers
 from training.tools.utils import create_optimizer, AverageMeter
 from training.losses import getLoss
 from training import losses
-from torchcontrib.optim.swa import SWA
-
+from torch.optim.swa_utils import AveragedModel, SWALR
 from tensorboardX import SummaryWriter
 
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -92,8 +91,7 @@ arg("--opt-level", default='O1', type=str)
 arg("--test_every", type=int, default=1)
 arg("--accum", type=int, default=1)
 arg('--from-zero', action='store_true', default=False)
-arg('--swa_mult', type=float, default=None) # or 'single'
-arg('--swa_epochs', type=float, default=None) # or 'single'
+arg('--swa_epochs', type=float, default=999) # or 'single'
 args = parser.parse_args()
 
 if False:
@@ -268,11 +266,10 @@ current_epoch = start_epoch
 if conf['fp16'] and args.device != 'cpu':
     scaler = torch.cuda.amp.GradScaler()
     
-if args.swa_mult is not None:
-    swa_lr = conf['optimizer']['learning_rate'] * args.swa_mult
-    swa_epoch_start = conf['optimizer']['schedule']['epochs'] - args.swa_epochs
-    logger.info(f'Swa start @ epoch {swa_epoch_start} with lr {swa_lr:.7f}')
-    optimizer = SWA(optimizer, swa_start=swa_epoch_start, swa_freq=1, swa_lr=swa_lr)
+if args.swa_epochs < 999:
+    swa_start = conf['optimizer']['schedule']['epochs'] - args.swa_epochs
+    logger.info(f'Swa start @ epoch {swa_start}')
+    swa_model = AveragedModel(model)
 
 snapshot_name = "{}{}_{}_{}_".format(conf.get("prefix", args.prefix), conf['network'], conf['encoder'], args.fold)
 max_epochs = conf['optimizer']['schedule']['epochs']
@@ -361,9 +358,12 @@ for epoch in range(start_epoch, max_epochs):
         
         if conf["optimizer"]["schedule"]["mode"] in ("step", "poly"):
             scheduler.step(i + current_epoch * max_iters)
+        if epoch > swa_start:
+            swa_model.update_parameters(model)
         if i == max_iters - 1:
             break
     pbar.close()
+
     if epoch > 0:
         seen = set(epoch_img_names[epoch]).intersection(
             set(itertools.chain(*[epoch_img_names[i] for i in range(epoch)])))
@@ -374,7 +374,14 @@ for epoch in range(start_epoch, max_epochs):
         summary_writer.add_scalar('group{}/lr'.format(idx), float(lr), global_step=current_epoch)
         summary_writer.add_scalar('train/loss', float(losses.avg), global_step=current_epoch)
     model = model.eval()
-    bce, acc, probdf = validate(model, valloader)
+    
+    # https://pytorch.org/blog/pytorch-1.6-now-includes-stochastic-weight-averaging/
+    # Update bn statistics for the swa_model at the end
+    if epoch > swa_start:
+        torch.optim.swa_utils.update_bn(loader, swa_model)
+        bce, acc, probdf = validate(swa_model, valloader)
+    else:
+        bce, acc, probdf = validate(model, valloader)
 
     if args.local_rank == 0:
         summary_writer.add_scalar('val/bce', float(bce), global_step=current_epoch)
