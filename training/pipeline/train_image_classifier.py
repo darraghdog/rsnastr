@@ -349,6 +349,7 @@ for epoch in range(start_epoch, max_epochs):
         logger.info(f'Train class balance:\n{trncts}')
         logger.info(f'Valid class balance:\n{valcts}')
     trnloader = DataLoader(trndataset, batch_size=args.batchsize, sampler = trnsampler, **loaderargs)
+    swaloader = DataLoader(trndataset, batch_size=args.batchsize, sampler = trnsampler, **loaderargs)
     model.train()
     pbar = tqdm(enumerate(trnloader), total=max_iters, desc="Epoch {}".format(current_epoch), ncols=0)
     if conf["optimizer"]["schedule"]["mode"] == "current_epoch":
@@ -402,9 +403,14 @@ for epoch in range(start_epoch, max_epochs):
             scheduler.step(i + current_epoch * max_iters)
         if epoch > swa_start:
             swa_model.update_parameters(model)
+        if i>30: break
         if i == max_iters - 1:
             break
     pbar.close()
+    del sample, img, labels
+    torch.cuda.empty_cache()
+    if epoch > swa_start:
+        swa_update_bn(trnloader, swa_model, args.device)
 
     if epoch > 0:
         seen = set(epoch_img_names[epoch]).intersection(
@@ -420,7 +426,6 @@ for epoch in range(start_epoch, max_epochs):
     # https://pytorch.org/blog/pytorch-1.6-now-includes-stochastic-weight-averaging/
     # Update bn statistics for the swa_model at the end
     if epoch > swa_start:
-        swa_update_bn(trnloader, swa_model, args.device)
         bce, acc, probdf = validate(swa_model, valloader)
     else:
         bce, acc, probdf = validate(model, valloader)
