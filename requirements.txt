@@ -8,3 +8,4 @@ pytorch-toolbelt==0.4.0
 tensorboardX==2.0
 timm==0.1.26
 pydicom==2.0.0
+torchcontrib==0.0.2

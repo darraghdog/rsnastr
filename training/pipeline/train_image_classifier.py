@@ -35,6 +35,7 @@ from training.zoo import classifiers
 from training.tools.utils import create_optimizer, AverageMeter
 from training.losses import getLoss
 from training import losses
+from torchcontrib.optim.swa import SWA
 
 from tensorboardX import SummaryWriter
 
@@ -91,6 +92,8 @@ arg("--opt-level", default='O1', type=str)
 arg("--test_every", type=int, default=1)
 arg("--accum", type=int, default=1)
 arg('--from-zero', action='store_true', default=False)
+arg('--swa_mult', type=str, default=None) # or 'single'
+arg('--swa_epochs', type=str, default=None) # or 'single'
 args = parser.parse_args()
 
 if False:
@@ -249,6 +252,14 @@ current_epoch = start_epoch
 if conf['fp16'] and args.device != 'cpu':
     scaler = torch.cuda.amp.GradScaler()
     
+if args.swa_mult is not None:
+    swa_lr = conf['optimizer']['learning_rate'] * args.swa_mult
+    swa_epoch_start = conf['optimizer']['schedule']['epochs'] - args.swa_epochs
+    logger.info(f'Swa start @ epoch {swa_epoch_start} with lr {swa_lr:.7f}')
+    # optimizer = torchcontrib.optim.SWA(optimizer)
+    optimizer = torchcontrib.optim.SWA(optimizer, swa_start=swa_epoch_start, swa_freq=1, swa_lr=swa_lr)
+
+
 snapshot_name = "{}{}_{}_{}_".format(conf.get("prefix", args.prefix), conf['network'], conf['encoder'], args.fold)
 max_epochs = conf['optimizer']['schedule']['epochs']
 
