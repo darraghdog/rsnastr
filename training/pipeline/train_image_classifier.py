@@ -100,18 +100,6 @@ if False:
     args.config = 'configs/rnxt101_binary.json'
 conf = load_config(args.config)
 
-'''
-from PIL import Image
-img = cv2.imread('data/jpegip/train/6842db0937cf/51a8ec9ed5a8/09b37a7c0524.jpg')
-Image.fromarray(img)
-
-aug = create_train_transforms(size = img.shape[0])
-augmented = aug(image=img)
-img = augmented['image']
-Image.fromarray(img)
-'''
-
-
 # Try using imagenet means
 if not args.augextra:
     def create_train_transforms(size=300, distort = False):
@@ -215,6 +203,60 @@ def validate(model, data_loader):
                            'studype': targets.flatten(),
                            'probs': probs.flatten()})
     return avg_loss, avg_acc, probdf
+
+
+def swa_update_bn(loader, model, device=None):
+    r"""Updates BatchNorm running_mean, running_var buffers in the model.
+    It performs one pass over data in `loader` to estimate the activation
+    statistics for BatchNorm layers in the model.
+    Arguments:
+        loader (torch.utils.data.DataLoader): dataset loader to compute the
+            activation statistics on. Each data batch should be either a
+            tensor, or a list/tuple whose first element is a tensor
+            containing data.
+        model (torch.nn.Module): model for which we seek to update BatchNorm
+            statistics.
+        device (torch.device, optional): If set, data will be transferred to
+            :attr:`device` before being passed into :attr:`model`.
+    Example:
+        >>> loader, model = ...
+        >>> torch.optim.swa_utils.update_bn(loader, model) 
+    .. note::
+        The `update_bn` utility assumes that each data batch in :attr:`loader`
+        is either a tensor or a list or tuple of tensors; in the latter case it 
+        is assumed that :meth:`model.forward()` should be called on the first 
+        element of the list or tuple corresponding to the data batch.
+    """
+    momenta = {}
+    for module in model.modules():
+        if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
+            module.running_mean = torch.zeros_like(module.running_mean)
+            module.running_var = torch.ones_like(module.running_var)
+            momenta[module] = module.momentum
+
+    if not momenta:
+        return
+
+    was_training = model.training
+    model.train()
+    for module in momenta.keys():
+        module.momentum = None
+        module.num_batches_tracked *= 0
+
+    for sample in loader:
+        '''
+        if isinstance(input, (list, tuple)):
+            input = input[0]
+        '''
+        input = sample['image'] 
+        if device is not None:
+            input = input.to(device)
+
+        model(input)
+
+    for bn_module in momenta.keys():
+        bn_module.momentum = momenta[bn_module]
+    model.train(was_training)
 
 logger.info('Create traindatasets')
 trndataset = RSNAClassifierDataset(mode="train",
@@ -378,7 +420,7 @@ for epoch in range(start_epoch, max_epochs):
     # https://pytorch.org/blog/pytorch-1.6-now-includes-stochastic-weight-averaging/
     # Update bn statistics for the swa_model at the end
     if epoch > swa_start:
-        torch.optim.swa_utils.update_bn(loader, swa_model)
+        swa_update_bn(trnloader, swa_model, args.device)
         bce, acc, probdf = validate(swa_model, valloader)
     else:
         bce, acc, probdf = validate(model, valloader)
