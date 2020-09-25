@@ -183,12 +183,28 @@ def validate(model, data_loader):
     posimg_idx = (targets > 0.5) & (studype > 0.5)
     negstd_idx = (targets < 0.5) & (studype < 0.5)
 
-    negimg_loss = log_loss(targets[negimg_idx], probs[negimg_idx], labels=[0, 1])
-    posimg_loss = log_loss(targets[posimg_idx], probs[posimg_idx], labels=[0, 1])
-    negstd_loss = log_loss(targets[negstd_idx], probs[negstd_idx], labels=[0, 1])
-    negimg_acc = (targets[negimg_idx] == (probs[negimg_idx] > 0.5).astype(np.int).flatten()).mean()
-    posimg_acc = (targets[posimg_idx] == (probs[posimg_idx] > 0.5).astype(np.int).flatten()).mean()
-    negstd_acc = (targets[negstd_idx] == (probs[negstd_idx] > 0.5).astype(np.int).flatten()).mean()
+    try:
+        negimg_loss = log_loss(targets[negimg_idx], probs[negimg_idx], labels=[0, 1])
+        negimg_acc = (targets[negimg_idx] == (probs[negimg_idx] > 0.5).astype(np.int).flatten()).mean()
+    with Exception as e:
+        negimg_loss = -1
+        negimg_acc = -1
+        logger.info(f'Negimg fails : {e}')
+    try:
+        posimg_loss = log_loss(targets[posimg_idx], probs[posimg_idx], labels=[0, 1])
+        posimg_acc = (targets[posimg_idx] == (probs[posimg_idx] > 0.5).astype(np.int).flatten()).mean()
+    with Exception as e:
+        posimg_loss = -1
+        posimg_acc = -1
+        logger.info(f'Posmg fails : {e}')
+    try:
+        negstd_loss = log_loss(targets[negstd_idx], probs[negstd_idx], labels=[0, 1])
+        negstd_acc = (targets[negstd_idx] == (probs[negstd_idx] > 0.5).astype(np.int).flatten()).mean()
+    with Exception as e:
+        negstd_loss = -1
+        negstd_acc = -1
+        logger.info(f'Posmg fails : {e}')
+    
     avg_acc = (negimg_acc + posimg_acc + negstd_acc) / 3
     avg_loss= (negimg_loss + posimg_loss + negstd_loss) / 3
     log = f'Negimg PosStudy loss {negimg_loss:.4f} acc {negimg_acc:.4f}; '
