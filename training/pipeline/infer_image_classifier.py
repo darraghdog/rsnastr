@@ -152,10 +152,11 @@ if args.emb:
         model = model.to(args.device)
         model = model.eval()
         pbar = tqdm(enumerate(valloader), total=len(valloader), desc="Weights {}".format(f), ncols=0)
-        for i, sample in pbar:
-            imgs = sample["image"].to(args.device)
-            emb = model(imgs)
-            embls.append(emb.detach().cpu().numpy().astype(np.float32))
+        with torch.no_grad():
+            for i, sample in pbar:
+                imgs = sample["image"].to(args.device)
+                emb = model(imgs)
+                embls.append(emb.detach().cpu().numpy().astype(np.float32))
         outemb = np.concatenate(embls)
         logger.info('Write embeddings : shape {} {}'.format(*outemb.shape))
         fembname =  f'{f}__hflip{int(HFLIP)}_transpose{int(TRANSPOSE)}_size{conf["size"]}.emb'
