@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import sys
+import gc
 import itertools
 from collections import defaultdict, OrderedDict
 import platform
@@ -161,9 +162,10 @@ if args.emb:
         outemb = np.concatenate(embls)
         logger.info('Write embeddings : shape {} {}'.format(*outemb.shape))
         fembname =  f'{f}__hflip{int(HFLIP)}_transpose{int(TRANSPOSE)}_size{conf["size"]}.emb'
+        fembname = fembname.replace(args.output_dir, '')
         logger.info('Embedding file name : {}'.format(fembname))
         np.savez_compressed(os.path.join('emb', fembname), outemb)
-        valdataset.data.to_pickle( f'{fembname}.pk' )
+        valdataset.data.to_pickle( f'emb/{fembname}.pk' )
         gc.collect()
     
 '''
