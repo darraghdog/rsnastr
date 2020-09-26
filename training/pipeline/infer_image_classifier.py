@@ -103,7 +103,7 @@ valloader = DataLoader(valdataset,
 logger.info('Create model and optimisers')
 model = classifiers.__dict__[conf['network']](encoder=conf['encoder'], \
                                               nclasses = len(conf['classes']),
-                                              infer= True) 
+                                              infer=False) 
 
 wtls = glob.glob(f'{args.output_dir}/{args.weightsrgx}')
 epochs = list(map(lambda x: f'_epoch{x}', args.epochs.split('|')))
