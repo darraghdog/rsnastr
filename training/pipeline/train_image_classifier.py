@@ -31,7 +31,8 @@ from tqdm import tqdm
 import torch.distributed as dist
 from training.datasets.classifier_dataset import RSNAClassifierDataset, \
         nSampler, valSeedSampler, collatefn
-from training.zoo import classifiers
+from training.zoo import classifiers 
+from training.zoo.classifiers import swa_update_bn, validate
 from training.tools.utils import create_optimizer, AverageMeter
 from training.losses import getLoss
 from training import losses
@@ -148,115 +149,7 @@ def create_val_transforms(size=300, HFLIPVAL = 1.0, TRANSPOSEVAL = 1.0):
         ToTensor()
     ])
 
-def validate(model, data_loader):
-    probs = []#defaultdict(list)
-    targets = []#defaultdict(list)
-    studype = []
-    img_names = []
-    with torch.no_grad():
-        for sample in tqdm(valloader):
-            imgs = sample["image"].to(args.device)
-            img_names += sample["img_name"]
-            targets += sample["labels"].flatten().tolist()
-            studype += sample['studype'].flatten().tolist()
-            out = model(imgs)
-            preds = torch.sigmoid(out).detach().cpu().numpy()
-            probs.append(preds)
-    probs = np.concatenate(probs, 0)
-    targets = np.array(targets).round()
-    studype = np.array(studype).round()
-    negimg_idx = (targets < 0.5) & (studype > 0.5)
-    posimg_idx = (targets > 0.5) & (studype > 0.5)
-    negstd_idx = (targets < 0.5) & (studype < 0.5)
 
-    try:
-        negimg_loss = log_loss(targets[negimg_idx], probs[negimg_idx], labels=[0, 1])
-        negimg_acc = (targets[negimg_idx] == (probs[negimg_idx] > 0.5).astype(np.int).flatten()).mean()
-    except Exception as e:
-        negimg_loss = 99
-        negimg_acc = 99
-        logger.info(f'Negimg fails : {e}')
-    try:
-        posimg_loss = log_loss(targets[posimg_idx], probs[posimg_idx], labels=[0, 1])
-        posimg_acc = (targets[posimg_idx] == (probs[posimg_idx] > 0.5).astype(np.int).flatten()).mean()
-    except Exception as e:
-        posimg_loss = 99
-        posimg_acc = 99
-        logger.info(f'Posmg fails : {e}')
-    try:
-        negstd_loss = log_loss(targets[negstd_idx], probs[negstd_idx], labels=[0, 1])
-        negstd_acc = (targets[negstd_idx] == (probs[negstd_idx] > 0.5).astype(np.int).flatten()).mean()
-    except Exception as e:
-        negstd_loss = 99
-        negstd_acc = 99
-        logger.info(f'Posmg fails : {e}')
-    
-    avg_acc = (negimg_acc + posimg_acc + negstd_acc) / 3
-    avg_loss= (negimg_loss + posimg_loss + negstd_loss) / 3
-    log = f'Negimg PosStudy loss {negimg_loss:.4f} acc {negimg_acc:.4f}; '
-    log += f'Posimg PosStudy loss {posimg_loss:.4f} acc {posimg_acc:.4f}; '
-    log += f'Negimg NegStudy loss {negstd_loss:.4f} acc {negstd_acc:.4f}; '
-    log += f'Avg 3 loss {avg_loss:.4f} acc {avg_acc:.4f}'
-    logger.info(log)
-    probdf = pd.DataFrame({'img': img_names, 
-                           'label': targets.flatten(),
-                           'studype': targets.flatten(),
-                           'probs': probs.flatten()})
-    return avg_loss, avg_acc, probdf
-
-
-def swa_update_bn(loader, model, device=None):
-    r"""Updates BatchNorm running_mean, running_var buffers in the model.
-    It performs one pass over data in `loader` to estimate the activation
-    statistics for BatchNorm layers in the model.
-    Arguments:
-        loader (torch.utils.data.DataLoader): dataset loader to compute the
-            activation statistics on. Each data batch should be either a
-            tensor, or a list/tuple whose first element is a tensor
-            containing data.
-        model (torch.nn.Module): model for which we seek to update BatchNorm
-            statistics.
-        device (torch.device, optional): If set, data will be transferred to
-            :attr:`device` before being passed into :attr:`model`.
-    Example:
-        >>> loader, model = ...
-        >>> torch.optim.swa_utils.update_bn(loader, model) 
-    .. note::
-        The `update_bn` utility assumes that each data batch in :attr:`loader`
-        is either a tensor or a list or tuple of tensors; in the latter case it 
-        is assumed that :meth:`model.forward()` should be called on the first 
-        element of the list or tuple corresponding to the data batch.
-    """
-    momenta = {}
-    for module in model.modules():
-        if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
-            module.running_mean = torch.zeros_like(module.running_mean)
-            module.running_var = torch.ones_like(module.running_var)
-            momenta[module] = module.momentum
-
-    if not momenta:
-        return
-
-    was_training = model.training
-    model.train()
-    for module in momenta.keys():
-        module.momentum = None
-        module.num_batches_tracked *= 0
-
-    for sample in loader:
-        '''
-        if isinstance(input, (list, tuple)):
-            input = input[0]
-        '''
-        input = sample['image'] 
-        if device is not None:
-            input = input.to(device)
-
-        model(input)
-
-    for bn_module in momenta.keys():
-        bn_module.momentum = momenta[bn_module]
-    model.train(was_training)
 
 logger.info('Create traindatasets')
 trndataset = RSNAClassifierDataset(mode="train",
@@ -426,9 +319,9 @@ for epoch in range(start_epoch, max_epochs):
     # https://pytorch.org/blog/pytorch-1.6-now-includes-stochastic-weight-averaging/
     # Update bn statistics for the swa_model at the end
     if epoch > swa_start:
-        bce, acc, probdf = validate(swa_model, valloader)
+        bce, acc, probdf = validate(swa_model, valloader, device = args.device)
     else:
-        bce, acc, probdf = validate(model, valloader)
+        bce, acc, probdf = validate(model, valloader, device = args.device)
 
     if args.local_rank == 0:
         summary_writer.add_scalar('val/bce', float(bce), global_step=current_epoch)

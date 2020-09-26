@@ -6,6 +6,7 @@ import sys
 import itertools
 from collections import defaultdict, OrderedDict
 import platform
+import glob
 PATH = '/Users/dhanley/Documents/rsnastr' \
         if platform.system() == 'Darwin' else '/data/rsnastr'
 os.chdir(PATH)
@@ -28,6 +29,7 @@ from tqdm import tqdm
 from training.datasets.classifier_dataset import RSNAClassifierDataset, \
         nSampler, valSeedSampler, collatefn
 from training.zoo import classifiers
+from training.zoo.classifiers import swa_update_bn, validate
 
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
@@ -48,8 +50,11 @@ arg('--workers', type=int, default=6, help='number of cpu threads to use')
 arg('--device', type=str, default='cpu' if platform.system() == 'Darwin' else 'cuda', help='device for model - cpu/gpu')
 arg('--gpu', type=str, default='0', help='List of GPUs for parallel training, e.g. 0,1,2,3')
 arg('--output-dir', type=str, default='weights/')
-arg('--weights', type=str, default='classifier_RSNAClassifier_resnext101_32x8d_0__best_dice')
+arg('--weightsrgx', type=str, default='classifier_RSNAClassifier_resnext101_32x8d_0__fold0_epoch2*')
+arg('--epochs', type=str, default='21|22|23')
 arg('--fold', type=int, default=0)
+arg('--infer', type=bool, default=True)
+arg('--emb', type=bool, default=False)
 arg('--batchsize', type=int, default=4)
 arg('--concatsteps', type=int, default=32)
 arg('--labeltype', type=str, default='all') 
@@ -97,6 +102,20 @@ model = classifiers.__dict__[conf['network']](encoder=conf['encoder'], \
                                               nclasses = len(conf['classes']),
                                               infer= True) 
 
+wtls = glob.glob(f'{args.output_dir}/{args.weightsrgx}')
+epochs = list(map(lambda x: f'_epoch{x}', args.epochs.split('|')))
+wtls = [w for w in wtls if any(e in w for e in epochs)]
+ckptls = [torch.load(wt, map_location=torch.device(args.device)) for wt in wtls]
+
+for (w, checkpoint) in zip(wtls, ckptls):
+    logger.info(f'Infer {w}')
+    model.load_state_dict(checkpoint['state_dict'])
+    model = model.to(args.device)
+    model = model.eval()
+    bce, acc, probdf = validate(model, valloader, device = args.device)
+    print("Weights {{w} Bce: {:.5f}, bce_best: {:.5f}".format(bce, bce_best))
+    
+'''
 checkpoint = torch.load(f'{args.output_dir}/{args.weights}', 
                         map_location=torch.device(args.device))
 
@@ -122,3 +141,4 @@ logger.info('Embedding file name : {}'.format(fembname))
 np.savez_compressed(os.path.join('emb', fembname), outemb)
 dumpobj(os.path.join(WORK_DIR, 'loader{logs/nohup_accum.out}'.format(HFLIP+TRANSPOSE, typ, SIZE, fold, epoch)), loader)
 gc.collect()
+'''
