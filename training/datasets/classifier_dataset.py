@@ -21,7 +21,75 @@ import pandas as pd
 from turbojpeg import TurboJPEG
 jpeg = TurboJPEG()
 
+class RSNASequenceDataset(Dataset):
 
+    def __init__(self, 
+                 datadf,
+                 embmat,
+                 folddf,
+                 mode="train", 
+                 fold = 0, 
+                 labeltype='all', 
+                 label = True,
+                 classes=["pe_present_on_image"],
+                 label_smoothing=0.01,
+                 folds_csv='folds.csv.gz'):
+        self.mode = mode
+        self.fold = fold
+        if mode == "train":
+            self.folddf = folddf.query('fold != @self.fold')
+        if mode == "valid":
+            self.folddf = folddf.query('fold == @self.fold')
+        self.classes = classes
+        self.label_smoothing = label_smoothing
+        self.labeltype = labeltype
+        self.datadf = datadf.set_index('StudyInstanceUID')
+        self.embmat = embmat
+        self.label = label
+
+    def __len__(self):
+        return len(self.folddf)
+
+    def __getitem__(self, idx):
+        studyidx = self.folddf.iloc[idx].StudyInstanceUID
+        studydf = self.datadf.loc[studyidx]
+        embidx = (datadf.StudyInstanceUID == studyidx).values
+        studyemb = self.embmat[embidx]
+        
+        imgnames  = studydf.SOPInstanceUID.values
+        labels = studydf[self.classes].values
+        if self.label:
+            if self.mode == 'train': 
+                labels = np.clip(labels, self.label_smoothing, 1 - self.label_smoothing)
+            
+            return {'emb': studyemb, 'img_name' : imgnames, 'labels': labels}
+        return {'emb': studyemb, 'img_name' : imgnames}
+
+def collateseqfn(batch):
+    maxlen = max([l['emb'].shape[0] for l in batch])
+    embdim = batch[0]['emb'].shape[1]
+    withlabel = 'labels' in batch[0]
+    if withlabel:
+        labdim= batch[0]['labels'].shape[1]
+        
+    for b in batch:
+        masklen = maxlen-len(b['emb'])
+        b['img_name'] = np.concatenate((np.array(['mask']*masklen), b['img_name']))
+        b['emb'] = np.vstack((np.zeros((masklen, embdim)), b['emb']))
+        b['mask'] = np.ones((maxlen))
+        b['mask'][:masklen] = 0.
+        if withlabel:
+            b['labels'] = np.vstack((np.zeros((maxlen-len(b['labels']), labdim)), b['labels']))
+            
+    outbatch = {'emb' : torch.tensor(np.vstack([np.expand_dims(b['emb'], 0) \
+                                                for b in batch])).float()}  
+    outbatch['mask'] = torch.tensor(np.vstack([np.expand_dims(b['mask'], 0) \
+                                                for b in batch])).float()
+    outbatch['img_name'] =  np.vstack([np.expand_dims(b['img_name'], 0) \
+                                                for b in batch])
+    if withlabel:
+        outbatch['labels'] = torch.tensor(np.vstack([np.expand_dims(b['labels'], 0) for b in batch])).float()
+    return outbatch
 
 class RSNAClassifierDataset(Dataset):
 
