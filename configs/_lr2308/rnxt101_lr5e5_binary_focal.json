@@ -6,11 +6,11 @@
     "classes": ["pe_present_on_image"],
     "fp16": true,
     "studynmin": 2,
-    "studynmax": 8,
-    "pe_ratio": 0.25,
+    "studynmax": 4,
+    "pe_ratio": 0.5,
     "optimizer": {
         "type": "Adam",
-        "learning_rate": 0.0001,
+        "learning_rate": 0.00005,
         "schedule": {
             "type": "poly",
             "mode": "step",

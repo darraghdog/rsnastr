@@ -1,6 +1,6 @@
 {
     "network": "RSNAClassifier",
-    "encoder": "resnext101_32x8d",
+    "encoder": "resnest200e",
     "batches_per_epoch": 600,
     "size": 320,
     "classes": ["pe_present_on_image"],

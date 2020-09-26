@@ -14,8 +14,8 @@
         "schedule": {
             "type": "poly",
             "mode": "step",
-            "epochs": 25,
-            "params": {"max_iter":  15000}
+            "epochs": 50,
+            "params": {"max_iter":  25000}
         }
     },
     "normalize": {

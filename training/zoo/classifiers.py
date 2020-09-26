@@ -82,6 +82,14 @@ encoder_params = {
         "features": 2048,
         "init_op": partial(seresnext50_32x4d, pretrained=True)
     },
+    "mixnet_xl": {
+        "features": 2048,
+        "init_op": partial(mixnet_xl, pretrained=True)
+    },
+    "resnest200e": {
+        "features": 2048,
+        "init_op": partial(resnest200e, pretrained=True)
+    },
     "se101": {
         "features": 2048,
         "init_op": partial(seresnext101_32x4d, pretrained=True)
