@@ -56,6 +56,7 @@ arg('--output-dir', type=str, default='weights/')
 arg('--weightsrgx', type=str, default='classifier_RSNAClassifier_resnext101_32x8d_0__fold0_epoch2*')
 arg('--epochs', type=str, default='21|22|23')
 arg('--fold', type=int, default=0)
+arg('--runswa', type=bool, default=False)
 arg('--infer', type=bool, default=True)
 arg('--emb', type=bool, default=False)
 arg('--batchsize', type=int, default=4)
@@ -124,15 +125,16 @@ weightfiles = glob.glob(f'{args.output_dir}/{args.weightsrgx}')
 epochs = list(map(lambda x: f'_epoch{x}', args.epochs.split('|')))
 weightfiles = [w for w in weightfiles if any(e in w for e in epochs)]
 
-logger.info('Run SWA')
-net= swa(model, weightfiles, trnloader, args.batchsize//2, args.device)
-bce, acc, probdf = validate(net, valloader, device = args.device, logger=logger)
-print(f"SWA Bce: {bce:.5f}")
+if args.runswa:
+    logger.info('Run SWA')
+    net= swa(model, weightfiles, trnloader, args.batchsize//2, args.device)
+    bce, acc, probdf = validate(net, valloader, device = args.device, logger=logger)
+    print(f"SWA Bce: {bce:.5f}")
 
 
 for f in weightfiles:
     logger.info(f'Infer {f}')
-    checkpoint = torch.load(wt, map_location=torch.device(args.device))
+    checkpoint = torch.load(f, map_location=torch.device(args.device))
     model.load_state_dict(checkpoint['state_dict'])
     model = model.to(args.device)
     model = model.eval()
