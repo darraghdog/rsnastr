@@ -3,7 +3,8 @@
 This is the code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection) challenge.
 
 #### To try
-    Fix focal loss - and try with different pe_weights
+    Try higher LR
+    Fix ratio seen. 
     Add acumulation
     Gett RNN to check accuracy on negative pe
     Smooth labels over time
@@ -19,8 +20,8 @@ This is the code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://ww
 #### Results
 | Model |Image Size|Epochs|Bag|TTA |Fold|ValSet|Val|LB|Config & comments                       |
 | ---------------|----------|------|---|----|----|--------|------|--------|-------------------------|
-| ResNeXt-101 32x8d  |320|18|-|-|0|`5K-vestudy,5K+ve,5K-ve`|0.31283|-| Focal loss `configs/_lr2308/rnxt101_lr1e4_binary_focal_pe0.25.json`|
-| ResNeXt-101 32x8d  |320|18|-|-|0|`5K-vestudy,5K+ve,5K-ve`|0.31687|-|`configs/_lr2308/rnxt101_lr1e4_binary.json` & Light aug|
+| ResNeXt-101 32x8d|320|18|-|-|0|`5K-vestudy` `5K+ve` `5K-ve`|0.31283|-| Focal loss `configs/_lr2308/rnxt101_lr1e4_binary_focal_pe0.25.json`|
+| ResNeXt-101 32x8d|320|18|-|-|0|`5K-vestudy` `5K+ve` `5K-ve`|0.31687|-|`configs/_lr2308/rnxt101_lr1e4_binary.json` & Light aug|
 
 
 
