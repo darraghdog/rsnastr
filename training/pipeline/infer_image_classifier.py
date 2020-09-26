@@ -126,7 +126,7 @@ weightfiles = [w for w in weightfiles if any(e in w for e in epochs)]
 
 logger.info('Run SWA')
 net= swa(model, weightfiles, trnloader, args.batchsize//2, args.device)
-bce, acc, probdf = validate(model, valloader, device = args.device, logger=logger)
+bce, acc, probdf = validate(net, valloader, device = args.device, logger=logger)
 print(f"Weights {w} Bce: {bce:.5f}")
 
 
