@@ -92,8 +92,10 @@ loaderargs = {'num_workers' : 8,
               'pin_memory': False, 
               'drop_last': False, 
               'collate_fn' : collatefn}
+valsampler = valSeedSampler(valdataset.data, N = 5000, seed = args.seed)
 valloader = DataLoader(valdataset, 
                        shuffle = False,
+                       sampler = valsampler,
                        batch_size=args.batchsize, 
                        **loaderargs)
 
