@@ -149,7 +149,6 @@ if args.emb:
         pbar = tqdm(enumerate(valloader), total=len(valloader), desc="Weights {}".format(f), ncols=0)
         for i, sample in pbar:
             imgs = sample["image"].to(args.device)
-            imgnames += sample['img_name']
             emb = model(imgs)
             embls.append(emb.detach().cpu().numpy().astype(np.float32))
         outemb = np.concatenate(embls)
