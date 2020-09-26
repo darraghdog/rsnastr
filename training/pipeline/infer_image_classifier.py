@@ -152,6 +152,7 @@ if args.emb:
         model = model.to(args.device)
         model = model.eval()
         pbar = tqdm(enumerate(valloader), total=len(valloader), desc="Weights {}".format(f), ncols=0)
+        embls = []
         with torch.no_grad():
             for i, sample in pbar:
                 imgs = sample["image"].to(args.device)
