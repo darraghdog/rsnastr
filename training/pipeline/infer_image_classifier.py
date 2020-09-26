@@ -139,7 +139,7 @@ for f in weightfiles:
     model = model.to(args.device)
     model = model.eval()
     bce, acc, probdf = validate(model, valloader, device = args.device, logger=logger)
-    print(f"Weights {w} Bce: {bce:.5f}")
+    print(f"Weights {f} Bce: {bce:.5f}")
     
 '''
 checkpoint = torch.load(f'{args.output_dir}/{args.weights}', 
