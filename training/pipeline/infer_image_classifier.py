@@ -15,10 +15,12 @@ import warnings
 warnings.filterwarnings("ignore")
 from sklearn.metrics import log_loss
 from utils.logs import get_logger
+#from utils.swa_utils import swa
 from utils.utils import RSNAWEIGHTS
 from training.tools.config import load_config
 import pandas as pd
 import cv2
+from utils.swa_utils import swa
 
 import torch
 from torch.backends import cudnn
@@ -81,6 +83,17 @@ def create_val_transforms(size=300, HFLIPVAL = 1.0, TRANSPOSEVAL = 1.0):
     ])
 
 logger.info('Create valdatasets')
+logger.info('Create traindatasets')
+trndataset = RSNAClassifierDataset(mode="train",
+                                       fold=args.fold,
+                                       imgsize = conf['size'],
+                                       crops_dir=args.crops_dir,
+                                       classes = conf['classes'], 
+                                       data_path=args.data_dir,
+                                       label_smoothing=0.01,
+                                       folds_csv=args.folds_csv,
+                                       transforms=create_val_transforms(conf['size']))
+logger.info('Create valdatasets')
 valdataset = RSNAClassifierDataset(mode="valid",
                                      fold=args.fold,
                                      crops_dir=args.crops_dir,
@@ -89,29 +102,37 @@ valdataset = RSNAClassifierDataset(mode="valid",
                                      data_path=args.data_dir,
                                      folds_csv=args.folds_csv,
                                      transforms=create_val_transforms(conf['size']))
-loaderargs = {'num_workers' : 8, 
-              'pin_memory': False, 
-              'drop_last': False, 
-              'collate_fn' : collatefn}
-valsampler = valSeedSampler(valdataset.data, N = 5000, seed = args.seed)
-valloader = DataLoader(valdataset, 
-                       shuffle = False,
-                       sampler = valsampler,
-                       batch_size=args.batchsize, 
-                       **loaderargs)
 
+valsampler = valSeedSampler(valdataset.data, N = 5000, seed = args.seed)
+trnsampler = nSampler(trndataset.data, 
+                          pe_weight = conf['pe_ratio'], 
+                          nmin = conf['studynmin'], 
+                          nmax = conf['studynmax'], 
+                          seed = None)
+logger.info(50*'-')
+logger.info(valdataset.data.loc[valsampler.sampler]['pe_present_on_image'].value_counts())
+loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': False, 'collate_fn' : collatefn}
+valloader = DataLoader(valdataset, batch_size=args.batchsize, sampler = valsampler, **loaderargs)
+trnloader = DataLoader(trndataset, batch_size=args.batchsize, sampler = trnsampler, **loaderargs)
 logger.info('Create model and optimisers')
 model = classifiers.__dict__[conf['network']](encoder=conf['encoder'], \
                                               nclasses = len(conf['classes']),
                                               infer=False) 
 
-wtls = glob.glob(f'{args.output_dir}/{args.weightsrgx}')
-epochs = list(map(lambda x: f'_epoch{x}', args.epochs.split('|')))
-wtls = [w for w in wtls if any(e in w for e in epochs)]
-ckptls = [torch.load(wt, map_location=torch.device(args.device)) for wt in wtls]
 
-for (w, checkpoint) in zip(wtls, ckptls):
-    logger.info(f'Infer {w}')
+weightfiles = glob.glob(f'{args.output_dir}/{args.weightsrgx}')
+epochs = list(map(lambda x: f'_epoch{x}', args.epochs.split('|')))
+weightfiles = [w for w in weightfiles if any(e in w for e in epochs)]
+
+logger.info('Run SWA')
+net= swa(model, weightfiles, trnloader, args.batchsize//2, args.device)
+bce, acc, probdf = validate(model, valloader, device = args.device, logger=logger)
+print(f"Weights {w} Bce: {bce:.5f}")
+
+
+for f in weightfiles:
+    logger.info(f'Infer {f}')
+    checkpoint = torch.load(wt, map_location=torch.device(args.device))
     model.load_state_dict(checkpoint['state_dict'])
     model = model.to(args.device)
     model = model.eval()
