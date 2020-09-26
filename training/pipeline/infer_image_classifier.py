@@ -47,6 +47,7 @@ parser = argparse.ArgumentParser("PyTorch Xview Pipeline")
 arg = parser.add_argument
 arg('--config', metavar='CONFIG_FILE', help='path to configuration file')
 arg('--workers', type=int, default=6, help='number of cpu threads to use')
+arg("--seed", default=777, type=int)
 arg('--device', type=str, default='cpu' if platform.system() == 'Darwin' else 'cuda', help='device for model - cpu/gpu')
 arg('--gpu', type=str, default='0', help='List of GPUs for parallel training, e.g. 0,1,2,3')
 arg('--output-dir', type=str, default='weights/')
@@ -114,7 +115,7 @@ for (w, checkpoint) in zip(wtls, ckptls):
     model.load_state_dict(checkpoint['state_dict'])
     model = model.to(args.device)
     model = model.eval()
-    bce, acc, probdf = validate(model, valloader, device = args.device)
+    bce, acc, probdf = validate(model, valloader, device = args.device, logger=logger)
     print("Weights {{w} Bce: {:.5f}, bce_best: {:.5f}".format(bce, bce_best))
     
 '''

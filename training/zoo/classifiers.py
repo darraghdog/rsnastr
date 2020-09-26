@@ -4,6 +4,8 @@ from functools import partial
 import numpy as np
 import torch
 from tqdm import tqdm
+from sklearn.metrics import log_loss
+
 from timm.models import skresnext50_32x4d
 from timm.models.dpn import dpn92, dpn131
 from timm.models.efficientnet import tf_efficientnet_b4_ns, tf_efficientnet_b3_ns, \
@@ -229,7 +231,7 @@ class RSNAClassifierSRM(nn.Module):
         x = self.fc(x)
         return x
     
-def validate(model, data_loader, device):
+def validate(model, data_loader, device, logger):
     probs = []#defaultdict(list)
     targets = []#defaultdict(list)
     studype = []
@@ -250,27 +252,12 @@ def validate(model, data_loader, device):
     posimg_idx = (targets > 0.5) & (studype > 0.5)
     negstd_idx = (targets < 0.5) & (studype < 0.5)
 
-    try:
-        negimg_loss = log_loss(targets[negimg_idx], probs[negimg_idx], labels=[0, 1])
-        negimg_acc = (targets[negimg_idx] == (probs[negimg_idx] > 0.5).astype(np.int).flatten()).mean()
-    except Exception as e:
-        negimg_loss = 99
-        negimg_acc = 99
-        logger.info(f'Negimg fails : {e}')
-    try:
-        posimg_loss = log_loss(targets[posimg_idx], probs[posimg_idx], labels=[0, 1])
-        posimg_acc = (targets[posimg_idx] == (probs[posimg_idx] > 0.5).astype(np.int).flatten()).mean()
-    except Exception as e:
-        posimg_loss = 99
-        posimg_acc = 99
-        logger.info(f'Posmg fails : {e}')
-    try:
-        negstd_loss = log_loss(targets[negstd_idx], probs[negstd_idx], labels=[0, 1])
-        negstd_acc = (targets[negstd_idx] == (probs[negstd_idx] > 0.5).astype(np.int).flatten()).mean()
-    except Exception as e:
-        negstd_loss = 99
-        negstd_acc = 99
-        logger.info(f'Posmg fails : {e}')
+    negimg_loss = log_loss(targets[negimg_idx], probs[negimg_idx], labels=[0, 1])
+    negimg_acc = (targets[negimg_idx] == (probs[negimg_idx] > 0.5).astype(np.int).flatten()).mean()
+    posimg_loss = log_loss(targets[posimg_idx], probs[posimg_idx], labels=[0, 1])
+    posimg_acc = (targets[posimg_idx] == (probs[posimg_idx] > 0.5).astype(np.int).flatten()).mean()
+    negstd_loss = log_loss(targets[negstd_idx], probs[negstd_idx], labels=[0, 1])
+    negstd_acc = (targets[negstd_idx] == (probs[negstd_idx] > 0.5).astype(np.int).flatten()).mean()
     
     avg_acc = (negimg_acc + posimg_acc + negstd_acc) / 3
     avg_loss= (negimg_loss + posimg_loss + negstd_loss) / 3
