@@ -144,7 +144,7 @@ if args.infer:
         print(f"Weights {f} Bce: {bce:.5f}")
 
 if args.emb:
-    valloader = DataLoader(valdataset, batch_size=args.batchsize*4, shuffle=False, **loaderargs)
+    valloader = DataLoader(valdataset, batch_size=args.batchsize, shuffle=False, **loaderargs)
     for f in weightfiles:
         logger.info(f'Infer {f}')
         checkpoint = torch.load(f, map_location=torch.device(args.device))
