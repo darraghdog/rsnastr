@@ -116,7 +116,7 @@ for (w, checkpoint) in zip(wtls, ckptls):
     model = model.to(args.device)
     model = model.eval()
     bce, acc, probdf = validate(model, valloader, device = args.device, logger=logger)
-    print("Weights {{w} Bce: {:.5f}, bce_best: {:.5f}".format(bce, bce_best))
+    print(f"Weights {w} Bce: {bce:.5f}")
     
 '''
 checkpoint = torch.load(f'{args.output_dir}/{args.weights}', 
