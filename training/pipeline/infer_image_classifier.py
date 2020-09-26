@@ -144,18 +144,18 @@ if args.infer:
         print(f"Weights {f} Bce: {bce:.5f}")
 
 if args.emb:
-    valloader = DataLoader(valdataset, batch_size=args.batchsize, shuffle=False, **loaderargs)
+    valloader = DataLoader(valdataset, batch_size=args.batchsize*2, shuffle=False, **loaderargs)
     for f in weightfiles:
         logger.info(f'Infer {f}')
         checkpoint = torch.load(f, map_location=torch.device(args.device))
         model.load_state_dict(checkpoint['state_dict'])
-        model = model.to(args.device)
+        model = model.half().to(args.device)
         model = model.eval()
         pbar = tqdm(enumerate(valloader), total=len(valloader), desc="Weights {}".format(f), ncols=0)
         embls = []
         with torch.no_grad():
             for i, sample in pbar:
-                imgs = sample["image"].to(args.device)
+                imgs = sample["image"].half().to(args.device)
                 emb = model(imgs)
                 embls.append(emb.detach().cpu().numpy().astype(np.float32))
         outemb = np.concatenate(embls)
