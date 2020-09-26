@@ -248,14 +248,17 @@ class RSNAClassifierSRM(nn.Module):
         x = self.fc(x)
         return x
     
-def validate(model, data_loader, device, logger):
+def validate(model, data_loader, device, logger, half = True):
     probs = []#defaultdict(list)
     targets = []#defaultdict(list)
     studype = []
     img_names = []
     with torch.no_grad():
         for i, sample in tqdm(enumerate(data_loader)):
-            imgs = sample["image"].half().to(device)
+            if half:
+                imgs = sample["image"].half().to(device)
+            else:
+                imgs = sample["image"].to(device)
             img_names += sample["img_name"]
             targets += sample["labels"].flatten().tolist()
             studype += sample['studype'].flatten().tolist()

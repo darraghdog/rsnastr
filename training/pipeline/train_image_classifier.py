@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import copy
 import sys
 import itertools
 from collections import defaultdict, OrderedDict
@@ -205,6 +206,8 @@ if args.swa_epochs < 999:
     swa_start = conf['optimizer']['schedule']['epochs'] - args.swa_epochs
     logger.info(f'Swa start @ epoch {swa_start}')
     swa_model = AveragedModel(model)
+else:
+    swa_start = args.swa_epochs
 
 snapshot_name = "{}{}_{}_{}_".format(conf.get("prefix", args.prefix), conf['network'], conf['encoder'], args.fold)
 max_epochs = conf['optimizer']['schedule']['epochs']
@@ -296,11 +299,9 @@ for epoch in range(start_epoch, max_epochs):
             scheduler.step(i + current_epoch * max_iters)
         if epoch > swa_start:
             swa_model.update_parameters(model)
-        if i>30: break
         if i == max_iters - 1:
             break
     pbar.close()
-    del sample, img, labels
     torch.cuda.empty_cache()
     if epoch > swa_start:
         swa_update_bn(trnloader, swa_model, args.device)
@@ -319,9 +320,9 @@ for epoch in range(start_epoch, max_epochs):
     # https://pytorch.org/blog/pytorch-1.6-now-includes-stochastic-weight-averaging/
     # Update bn statistics for the swa_model at the end
     if epoch > swa_start:
-        bce, acc, probdf = validate(swa_model, valloader, device = args.device)
+        bce, acc, probdf = validate(swa_model, valloader, device = args.device, logger = logger)
     else:
-        bce, acc, probdf = validate(model, valloader, device = args.device)
+        bce, acc, probdf = validate(model, valloader, device = args.device, logger = logger, half = False)
 
     if args.local_rank == 0:
         summary_writer.add_scalar('val/bce', float(bce), global_step=current_epoch)
