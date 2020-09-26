@@ -2,7 +2,6 @@
 import argparse
 import json
 import os
-import copy
 import sys
 import itertools
 from collections import defaultdict, OrderedDict
@@ -32,12 +31,12 @@ from tqdm import tqdm
 import torch.distributed as dist
 from training.datasets.classifier_dataset import RSNAClassifierDataset, \
         nSampler, valSeedSampler, collatefn
-from training.zoo import classifiers 
-from training.zoo.classifiers import swa_update_bn, validate
+from training.zoo import classifiers
+from training.zoo.classifiers import validate
 from training.tools.utils import create_optimizer, AverageMeter
 from training.losses import getLoss
 from training import losses
-from torch.optim.swa_utils import AveragedModel, SWALR
+
 from tensorboardX import SummaryWriter
 
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -91,9 +90,7 @@ arg("--local_rank", default=0, type=int)
 arg("--seed", default=777, type=int)
 arg("--opt-level", default='O1', type=str)
 arg("--test_every", type=int, default=1)
-arg("--accum", type=int, default=1)
 arg('--from-zero', action='store_true', default=False)
-arg('--swa_epochs', type=float, default=999) # or 'single'
 args = parser.parse_args()
 
 if False:
@@ -101,6 +98,18 @@ if False:
     args.config = 'configs/b2_binary.json'
     args.config = 'configs/rnxt101_binary.json'
 conf = load_config(args.config)
+
+'''
+from PIL import Image
+img = cv2.imread('data/jpegip/train/6842db0937cf/51a8ec9ed5a8/09b37a7c0524.jpg')
+Image.fromarray(img)
+
+aug = create_train_transforms(size = img.shape[0])
+augmented = aug(image=img)
+img = augmented['image']
+Image.fromarray(img)
+'''
+
 
 # Try using imagenet means
 if not args.augextra:
@@ -149,8 +158,6 @@ def create_val_transforms(size=300, HFLIPVAL = 1.0, TRANSPOSEVAL = 1.0):
                     std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
         ToTensor()
     ])
-
-
 
 logger.info('Create traindatasets')
 trndataset = RSNAClassifierDataset(mode="train",
@@ -202,13 +209,6 @@ current_epoch = start_epoch
 if conf['fp16'] and args.device != 'cpu':
     scaler = torch.cuda.amp.GradScaler()
     
-if args.swa_epochs < 999:
-    swa_start = conf['optimizer']['schedule']['epochs'] - args.swa_epochs
-    logger.info(f'Swa start @ epoch {swa_start}')
-    swa_model = AveragedModel(model)
-else:
-    swa_start = args.swa_epochs
-
 snapshot_name = "{}{}_{}_{}_".format(conf.get("prefix", args.prefix), conf['network'], conf['encoder'], args.fold)
 max_epochs = conf['optimizer']['schedule']['epochs']
 
@@ -245,7 +245,6 @@ for epoch in range(start_epoch, max_epochs):
         logger.info(f'Train class balance:\n{trncts}')
         logger.info(f'Valid class balance:\n{valcts}')
     trnloader = DataLoader(trndataset, batch_size=args.batchsize, sampler = trnsampler, **loaderargs)
-    swaloader = DataLoader(trndataset, batch_size=args.batchsize, sampler = trnsampler, **loaderargs)
     model.train()
     pbar = tqdm(enumerate(trnloader), total=max_iters, desc="Epoch {}".format(current_epoch), ncols=0)
     if conf["optimizer"]["schedule"]["mode"] == "current_epoch":
@@ -273,11 +272,8 @@ for epoch in range(start_epoch, max_epochs):
                 else:
                     loss = criterion(out, labels) # 0.6710
             scaler.scale(loss).backward()
-            if i % args.accum == 0:
-                optimizer.step()
-                optimizer.zero_grad()
-                scaler.step(optimizer)
-                scaler.update()
+            scaler.step(optimizer)
+            scaler.update()
         else:
             out = model(imgs)
             if args.mixup_beta > 0:
@@ -286,26 +282,18 @@ for epoch in range(start_epoch, max_epochs):
             else:
                 loss = criterion(out, labels)
                 loss.backward()
-            if i % args.accum == 0:
-                optimizer.step()
+            optimizer.step()
         losses.update(loss.item(), imgs.size(0))
-        if i % args.accum == 0:
-            optimizer.zero_grad()
+        optimizer.zero_grad()
         # if args.device != 'cpu': torch.cuda.synchronize()
         pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, 
                           "loss": losses.avg, 'seen_prev': seenratio })
         
         if conf["optimizer"]["schedule"]["mode"] in ("step", "poly"):
             scheduler.step(i + current_epoch * max_iters)
-        if epoch > swa_start:
-            swa_model.update_parameters(model)
         if i == max_iters - 1:
             break
     pbar.close()
-    torch.cuda.empty_cache()
-    if epoch > swa_start:
-        swa_update_bn(trnloader, swa_model, args.device)
-
     if epoch > 0:
         seen = set(epoch_img_names[epoch]).intersection(
             set(itertools.chain(*[epoch_img_names[i] for i in range(epoch)])))
@@ -316,13 +304,7 @@ for epoch in range(start_epoch, max_epochs):
         summary_writer.add_scalar('group{}/lr'.format(idx), float(lr), global_step=current_epoch)
         summary_writer.add_scalar('train/loss', float(losses.avg), global_step=current_epoch)
     model = model.eval()
-    
-    # https://pytorch.org/blog/pytorch-1.6-now-includes-stochastic-weight-averaging/
-    # Update bn statistics for the swa_model at the end
-    if epoch > swa_start:
-        bce, acc, probdf = validate(swa_model, valloader, device = args.device, logger = logger)
-    else:
-        bce, acc, probdf = validate(model, valloader, device = args.device, logger = logger, half = False)
+    bce, acc, probdf = validate(model, valloader, device = args.device, logger = logger, half = False)
 
     if args.local_rank == 0:
         summary_writer.add_scalar('val/bce', float(bce), global_step=current_epoch)
