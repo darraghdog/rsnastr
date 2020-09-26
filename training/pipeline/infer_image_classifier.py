@@ -136,6 +136,9 @@ if args.runswa:
 if args.infer:
     predls = []
     for f in weightfiles:
+        model = classifiers.__dict__[conf['network']](encoder=conf['encoder'], \
+                                              nclasses = len(conf['classes']),
+                                              infer=False)
         logger.info(f'Infer {f}')
         checkpoint = torch.load(f, map_location=torch.device(args.device))
         model.load_state_dict(checkpoint['state_dict'])
@@ -148,6 +151,9 @@ if args.emb:
     valloader = DataLoader(valdataset, batch_size=args.batchsize, shuffle=False, **loaderargs)
     for f in weightfiles:
         logger.info(f'Infer {f}')
+        model = classifiers.__dict__[conf['network']](encoder=conf['encoder'], \
+                                              nclasses = len(conf['classes']),
+                                              infer=True)
         checkpoint = torch.load(f, map_location=torch.device(args.device))
         model.load_state_dict(checkpoint['state_dict'])
         model = model.half().to(args.device)
