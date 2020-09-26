@@ -237,8 +237,8 @@ def validate(model, data_loader, device, logger):
     studype = []
     img_names = []
     with torch.no_grad():
-        for sample in tqdm(data_loader):
-            imgs = sample["image"].to(device)
+        for i, sample in tqdm(enumerate(data_loader)):
+            imgs = sample["image"].half().to(device)
             img_names += sample["img_name"]
             targets += sample["labels"].flatten().tolist()
             studype += sample['studype'].flatten().tolist()

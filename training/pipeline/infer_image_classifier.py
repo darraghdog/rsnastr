@@ -138,7 +138,7 @@ if args.infer:
         logger.info(f'Infer {f}')
         checkpoint = torch.load(f, map_location=torch.device(args.device))
         model.load_state_dict(checkpoint['state_dict'])
-        model = model.to(args.device)
+        model = model.half().to(args.device)
         model = model.eval()
         bce, acc, probdf = validate(model, valloader, device = args.device, logger=logger)
         print(f"Weights {f} Bce: {bce:.5f}")
@@ -157,7 +157,7 @@ if args.emb:
             for i, sample in pbar:
                 imgs = sample["image"].to(args.device)
                 emb = model(imgs)
-                # embls.append(emb.detach().cpu().numpy().astype(np.float32))
+                embls.append(emb.detach().cpu().numpy().astype(np.float32))
         outemb = np.concatenate(embls)
         logger.info('Write embeddings : shape {} {}'.format(*outemb.shape))
         fembname =  f'{f}__hflip{int(HFLIP)}_transpose{int(TRANSPOSE)}_size{conf["size"]}.emb'
