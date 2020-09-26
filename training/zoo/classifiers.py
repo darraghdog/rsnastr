@@ -11,7 +11,8 @@ from timm.models.dpn import dpn92, dpn131
 from timm.models.efficientnet import tf_efficientnet_b4_ns, tf_efficientnet_b3_ns, \
     tf_efficientnet_b5_ns, tf_efficientnet_b2_ns, tf_efficientnet_b6_ns, tf_efficientnet_b7_ns
 from timm.models.senet import seresnext50_32x4d, seresnext101_32x4d
-from timm.models import resnext50_32x4d, resnext101_32x8d, resnext101_32x4d
+from timm.models import resnext50_32x4d, resnext101_32x8d, resnext101_32x4d, mixnet_xxl, \
+        mixnet_xl, densenet169, densenet201
 from torch import nn
 from torch.nn.modules.dropout import Dropout
 from torch.nn.modules.linear import Linear
@@ -82,13 +83,21 @@ encoder_params = {
         "features": 2048,
         "init_op": partial(seresnext50_32x4d, pretrained=True)
     },
-    "mixnet_xl": {
+    "mixnet_xxl": {
         "features": 2048,
+        "init_op": partial(mixnet_xxl, pretrained=True)
+    },
+    "mixnet_xl": {
+        "features": 1536,
         "init_op": partial(mixnet_xl, pretrained=True)
     },
-    "resnest200e": {
-        "features": 2048,
-        "init_op": partial(resnest200e, pretrained=True)
+    "densenet201": {
+        "features": 1920,
+        "init_op": partial(densenet201, pretrained=True)
+    },
+    "densenet169": {
+        "features": 1664,
+        "init_op": partial(densenet169, pretrained=True)
     },
     "se101": {
         "features": 2048,
@@ -101,7 +110,7 @@ encoder_params = {
 }
 
 
-
+encoder = encoder_params["mixnet_xl"]["init_op"]()
 
 class GlobalWeightedAvgPool2d(nn.Module):
     """
