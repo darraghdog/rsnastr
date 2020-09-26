@@ -68,6 +68,7 @@ arg('--folds-csv', type=str, default='folds.csv.gz')
 arg('--crops-dir', type=str, default='jpegip')
 args = parser.parse_args()
 
+logger.info(args)
 HFLIP = False
 TRANSPOSE = False
 
