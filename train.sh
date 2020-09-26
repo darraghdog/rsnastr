@@ -1,4 +1,8 @@
 python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 48 --logdir 'logs/focal' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/rnxt101_lr1e4_binary_focal_pe0.25.json'
+python training/pipeline/train_image_classifier.py --device 'cuda' --fold 1 --batchsize 48 --logdir 'logs/focal' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/rnxt101_lr1e4_binary_focal_pe0.25.json'
+python training/pipeline/train_image_classifier.py --device 'cuda' --fold 2 --batchsize 48 --logdir 'logs/focal' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/rnxt101_lr1e4_binary_focal_pe0.25.json'
+python training/pipeline/train_image_classifier.py --device 'cuda' --fold 3 --batchsize 48 --logdir 'logs/focal' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/rnxt101_lr1e4_binary_focal_pe0.25.json'
+python training/pipeline/train_image_classifier.py --device 'cuda' --fold 4 --batchsize 48 --logdir 'logs/focal' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/rnxt101_lr1e4_binary_focal_pe0.25.json'
 # python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 48 --logdir 'logs/chkme' --mixup_beta 0.3  --label-smoothing 0.01 --config configs/_lr2308/rnxt101_lr1e4_binary_mixup.json
 
 
