@@ -122,8 +122,3 @@ logger.info('Embedding file name : {}'.format(fembname))
 np.savez_compressed(os.path.join('emb', fembname), outemb)
 dumpobj(os.path.join(WORK_DIR, 'loader{logs/nohup_accum.out}'.format(HFLIP+TRANSPOSE, typ, SIZE, fold, epoch)), loader)
 gc.collect()
-
-
-
-
-

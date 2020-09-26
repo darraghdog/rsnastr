@@ -119,7 +119,7 @@ class GlobalWeightedAvgPool2d(nn.Module):
         x = x.sum(dim=[2, 3], keepdim=not self.flatten)
         return x
 
-
+'''
 class RSNAClassifier(nn.Module):
     def __init__(self, encoder, nclasses, dropout_rate=0.0) -> None:
         super().__init__()
@@ -134,7 +134,25 @@ class RSNAClassifier(nn.Module):
         x = self.dropout(x)
         x = self.fc(x)
         return x
+'''
 
+class RSNAClassifier(nn.Module):
+    def __init__(self, encoder, nclasses, dropout_rate=0.0, infer = False) -> None:
+        super().__init__()
+        self.encoder = encoder_params[encoder]["init_op"]()
+        self.avg_pool = AdaptiveAvgPool2d((1, 1))
+        self.dropout = Dropout(dropout_rate)
+        self.fc = Linear(encoder_params[encoder]["features"], nclasses)
+        self.infer = infer 
+
+    def forward(self, x):
+        x = self.encoder.forward_features(x)
+        x = self.avg_pool(x).flatten(1)
+        if self.infer:
+            return x
+        x = self.dropout(x)
+        x = self.fc(x)
+        return x
 
 
 
