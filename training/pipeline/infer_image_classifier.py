@@ -146,6 +146,11 @@ if args.infer:
 if args.emb:
     valloader = DataLoader(valdataset, batch_size=args.batchsize, shuffle=False, **loaderargs)
     for f in weightfiles:
+        logger.info(f'Infer {f}')
+        checkpoint = torch.load(f, map_location=torch.device(args.device))
+        model.load_state_dict(checkpoint['state_dict'])
+        model = model.to(args.device)
+        model = model.eval()
         pbar = tqdm(enumerate(valloader), total=len(valloader), desc="Weights {}".format(f), ncols=0)
         for i, sample in pbar:
             imgs = sample["image"].to(args.device)
