@@ -5,8 +5,7 @@ This is the code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://ww
 #### To try
     Try higher LR
     Fix ratio seen. 
-    Add acumulation
-    Gett RNN to check accuracy on negative pe
+    Get RNN to check accuracy on negative pe
     Smooth labels over time
     Read up on other windowing approaches
     *Check if larger batch size helps/ Up lr with accumulation
@@ -20,9 +19,13 @@ This is the code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://ww
 #### Results
 | Model |Image Size|Epochs|Bag|TTA |Fold|ValSet|Val|LB|Config & comments                       |
 | ---------------|----------|------|---|----|----|--------|------|--------|-------------------------|
+| ResNeXt-101 32x8d|320|30|-|-|0|`5K-vestudy` `5K+ve` `5K-ve`|0.29791|-| Focal loss `configs/_lr2308/effnetb5_lr1e4_binary_focal_pe0.25.json`|
 | ResNeXt-101 32x8d|320|18|-|-|0|`5K-vestudy` `5K+ve` `5K-ve`|0.31283|-| Focal loss `configs/_lr2308/rnxt101_lr1e4_binary_focal_pe0.25.json`|
+| ResNeXt-101 32x8d|320|22|-|-|0|`5K-vestudy` `5K+ve` `5K-ve`|0.31320|-| Focal loss `configs/_lr2308/densenet169_lr1e4_binary_focal_pe0.25.json`|
 | ResNeXt-101 32x8d|320|18|-|-|0|`5K-vestudy` `5K+ve` `5K-ve`|0.31687|-|`configs/_lr2308/rnxt101_lr1e4_binary.json` & Light aug|
-
+| ResNeXt-101 32x8d|320|16|-|-|0|`5K-vestudy` `5K+ve` `5K-ve`|0.31833|-| Focal loss `configs/_lr2308/densenet201_lr1e4_binary_focal_pe0.25.json`|
+| ResNeXt-101 32x8d|320|11|-|-|0|`5K-vestudy` `5K+ve` `5K-ve`|0.32505|-| Focal loss `configs/_lr2308/se101_lr1e4_binary_focal_pe0.25.json`|
+| ResNeXt-101 32x8d|320|24|-|-|0|`5K-vestudy` `5K+ve` `5K-ve`|0.35697|-| Focal loss `configs/_lr2308/mixnet_xl_lr1e4_binary_focal_pe0.25.json`|
 
 
 ![](figs/competition.png?raw=true "Optional Title")  
