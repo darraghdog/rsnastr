@@ -35,15 +35,18 @@ class RSNASequenceDataset(Dataset):
                  label_smoothing=0.01,
                  folds_csv='folds.csv.gz'):
         self.mode = mode
-        self.fold = fold
+        self.fold = fold        
+        self.datadf = datadf.set_index('StudyInstanceUID')
         if mode == "train":
             self.folddf = folddf.query('fold != @self.fold')
+            idx = self.folddf.StudyInstanceUID.isin(self.datadf.index)
+            self.folddf = self.folddf[idx].reset_index(drop=True)
         if mode == "valid":
             self.folddf = folddf.query('fold == @self.fold')
         self.classes = classes
+        self.studyclasses = [c for c in self.classes if 'pe_present_on_image'!=c]
         self.label_smoothing = label_smoothing
         self.labeltype = labeltype
-        self.datadf = datadf.set_index('StudyInstanceUID')
         self.embmat = embmat
         self.label = label
 
@@ -53,24 +56,33 @@ class RSNASequenceDataset(Dataset):
     def __getitem__(self, idx):
         studyidx = self.folddf.iloc[idx].StudyInstanceUID
         studydf = self.datadf.loc[studyidx]
-        embidx = (datadf.StudyInstanceUID == studyidx).values
+        embidx = self.datadf.index == studyidx
         studyemb = self.embmat[embidx]
-        
         imgnames  = studydf.SOPInstanceUID.values
-        labels = studydf[self.classes].values
-        if self.label:
-            if self.mode == 'train': 
-                labels = np.clip(labels, self.label_smoothing, 1 - self.label_smoothing)
+        
+        out = {'emb': studyemb, 'img_name' : imgnames}
+        
+        if self.mode == 'test':
+            return out
+        
+        if 'pe_present_on_image' in self.classes :
+            out['imglabels'] = studydf[['pe_present_on_image']].values
             
-            return {'emb': studyemb, 'img_name' : imgnames, 'labels': labels}
-        return {'emb': studyemb, 'img_name' : imgnames}
+        if len(self.studyclasses) > 0:
+            out['studylabels'] = studydf[self.studyclasses].drop_duplicates().values
+
+        if self.mode == 'train': 
+                out['studylabels'] = np.clip(out['studylabels'], self.label_smoothing, 1 - self.label_smoothing)
+                out['imglabels'] = np.clip(out['imglabels'], self.label_smoothing, 1 - self.label_smoothing)
+        return out
 
 def collateseqfn(batch):
     maxlen = max([l['emb'].shape[0] for l in batch])
     embdim = batch[0]['emb'].shape[1]
-    withlabel = 'labels' in batch[0]
-    if withlabel:
-        labdim= batch[0]['labels'].shape[1]
+    withimglabel = 'imglabels' in batch[0]
+    withstudylabel = 'studylabels' in batch[0]
+    if withimglabel:
+        labimgdim= batch[0]['imglabels'].shape[1]
         
     for b in batch:
         masklen = maxlen-len(b['emb'])
@@ -78,8 +90,8 @@ def collateseqfn(batch):
         b['emb'] = np.vstack((np.zeros((masklen, embdim)), b['emb']))
         b['mask'] = np.ones((maxlen))
         b['mask'][:masklen] = 0.
-        if withlabel:
-            b['labels'] = np.vstack((np.zeros((maxlen-len(b['labels']), labdim)), b['labels']))
+        if withimglabel:
+            b['imglabels'] = np.vstack((np.zeros((maxlen-len(b['imglabels']), labimgdim)), b['imglabels']))
             
     outbatch = {'emb' : torch.tensor(np.vstack([np.expand_dims(b['emb'], 0) \
                                                 for b in batch])).float()}  
@@ -87,8 +99,12 @@ def collateseqfn(batch):
                                                 for b in batch])).float()
     outbatch['img_name'] =  np.vstack([np.expand_dims(b['img_name'], 0) \
                                                 for b in batch])
-    if withlabel:
-        outbatch['labels'] = torch.tensor(np.vstack([np.expand_dims(b['labels'], 0) for b in batch])).float()
+    if withimglabel:
+        outbatch['imglabels'] = torch.tensor(np.vstack([np.expand_dims(b['imglabels'], 0) for b in batch])).float()
+        outbatch['imglabels'] = outbatch['imglabels'].squeeze(-1)
+    if withstudylabel:
+        outbatch['studylabels'] = torch.tensor(np.concatenate([b['studylabels'] for b in batch], 0))
+        
     return outbatch
 
 class RSNAClassifierDataset(Dataset):

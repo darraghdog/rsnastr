@@ -25,6 +25,7 @@ import cv2
 import torch
 from torch.backends import cudnn
 from torch.nn import DataParallel
+from torch import nn
 from torch.utils.data import DataLoader
 from torch.cuda.amp import autocast
 
@@ -61,13 +62,16 @@ arg('--output-dir', type=str, default='weights/')
 arg('--resume', type=str, default='')
 arg('--fold', type=int, default=0)
 arg('--batchsize', type=int, default=4)
+arg('--lr', type=float, default = 0.00001)
+arg('--lrgamma', type=float, default = 0.95)
 arg('--labeltype', type=str, default='all') # or 'single'
-arg('--mixup_beta', type=float, default = 0.)
+arg('--dropout', type=float, default = 0.2)
 arg('--prefix', type=str, default='classifier_')
 arg('--data-dir', type=str, default="data")
 arg('--folds-csv', type=str, default='folds.csv.gz')
+arg('--nclasses', type=str, default=1)
 arg('--crops-dir', type=str, default='jpegip')
-arg('--lstm_units',   type=int, default=2048)
+arg('--lstm_units',   type=int, default=512)
 arg('--epochs',   type=int, default=12)
 arg('--nbags',   type=int, default=12)
 arg('--label-smoothing', type=float, default=0.01)
@@ -76,26 +80,23 @@ arg("--local_rank", default=0, type=int)
 arg("--seed", default=777, type=int)
 args = parser.parse_args()
 
-'''
-if False:
-    args.config = 'configs/b2.json'
-    args.config = 'configs/b2_binary.json'
-    args.config = 'configs/rnxt101_binary.json'
-conf = load_config(args.config)
-'''
-
 embrgx = 'classifier_RSNAClassifier_resnext101_32x8d_*__fold*_epoch24__hflip*_transpose0_size320.emb'
 datals = sorted(glob.glob(f'emb/{embrgx}*.pk'))
-datals = [pd.read_pickle(f) for f in datals]
-embls = [np.random.rand(f.shape[0], 2048).astype(np.float32) for f in datals]
-datadf = pd.concat(datals, 0)
-embmat = np.concatenate(embls, 0)
+for i, f in enumerate(datals):
+    logger.info(f'File load : {f}')
+    if i > 1:
+        logger.info('Skip')
+        continue
+    if i == 0:
+        datadf = pd.read_pickle(f)
+        embmat = np.load(f.replace('.pk', '.npz'))['arr_0']
+    if i>0:
+        embmat = np.append( embmat, np.load(f.replace('.pk', '.npz'))['arr_0'], 0)
+        datadf = pd.concat([datadf, pd.read_pickle(f)], 0)
+    logger.info(f'Embedding shape : {embmat.shape}')
+    logger.info(f'DataFrame shape : {datadf.shape}')
+    gc.collect()
 folddf = pd.read_csv(f'{args.data_dir}/{args.folds_csv}')
-del embls
-gc.collect()
-# embls = [np.load(f.replace('.pk', '.npz'))['arr_0'] for f in datals]
-
-
 
 '''
 batch = []
@@ -110,6 +111,7 @@ trndataset = RSNASequenceDataset(datadf,
                                    embmat, 
                                    folddf,
                                    mode="train",
+                                   classes=["pe_present_on_image", "negative_exam_for_pe"],
                                    fold=args.fold,
                                    label_smoothing=args.label_smoothing,
                                    folds_csv=args.folds_csv)
@@ -118,18 +120,17 @@ valdataset = RSNASequenceDataset(datadf,
                                    embmat, 
                                    folddf,
                                    mode="valid",
+                                   classes=["pe_present_on_image", "negative_exam_for_pe"],
                                    fold=args.fold,
                                    label_smoothing=args.label_smoothing,
                                    folds_csv=args.folds_csv)
 
-
 logger.info('Create loaders...')
 trnloader = DataLoader(trndataset, batch_size=args.batchsize, shuffle=True, num_workers=4, collate_fn=collateseqfn)
 valloader = DataLoader(valdataset, batch_size=args.batchsize, shuffle=False, num_workers=4, collate_fn=collateseqfn)
-
-
-batch = next(iter(trnloader))
-
+embed_size = embmat.shape[1]
+del embmat
+gc.collect()
 
 
 # https://www.kaggle.com/bminixhofer/speed-up-your-rnn-with-sequence-bucketing
@@ -137,37 +138,50 @@ class NeuralNet(nn.Module):
     def __init__(self, embed_size, LSTM_UNITS=64, DO = 0.3):
         super(NeuralNet, self).__init__()
         
+        self.embed_size = embed_size
         self.embedding_dropout = SpatialDropout(0.0) #DO)
         
         self.lstm1 = nn.LSTM(embed_size, LSTM_UNITS, bidirectional=True, batch_first=True)
         self.lstm2 = nn.LSTM(LSTM_UNITS * 2, LSTM_UNITS, bidirectional=True, batch_first=True)
 
-        self.linear1 = nn.Linear(LSTM_UNITS*2, LSTM_UNITS*2)
-        self.linear2 = nn.Linear(LSTM_UNITS*2, LSTM_UNITS*2)
+        self.img_linear1 = nn.Linear(LSTM_UNITS*2, LSTM_UNITS*2)
+        self.img_linear2 = nn.Linear(LSTM_UNITS*2, LSTM_UNITS*2)
+        self.study_linear1 = nn.Linear(LSTM_UNITS*4, LSTM_UNITS*4)
 
-        self.linear = nn.Linear(LSTM_UNITS*2, n_classes)
+        self.img_linear_out = nn.Linear(LSTM_UNITS*2, 1)
+        self.study_linear_out = nn.Linear(LSTM_UNITS*4, 1)
 
-    def forward(self, x, lengths=None):
+    def forward(self, x, mask, lengths=None):
+        
         h_embedding = x
 
-        h_embadd = torch.cat((h_embedding[:,:,:2048], h_embedding[:,:,:2048]), -1)
+        h_embadd = torch.cat((h_embedding[:,:,:self.embed_size], h_embedding[:,:,:self.embed_size]), -1)
         
         h_lstm1, _ = self.lstm1(h_embedding)
         h_lstm2, _ = self.lstm2(h_lstm1)
         
-        h_conc_linear1  = F.relu(self.linear1(h_lstm1))
-        h_conc_linear2  = F.relu(self.linear2(h_lstm2))
+        # Masked mean and max pool for study level prediction
+        avg_pool = torch.sum(h_lstm2, 1) * (1/ mask.sum(1)).unsqueeze(1)
+        max_pool, _ = torch.max(h_lstm2, 1)
         
-        hidden = h_lstm1 + h_lstm2 + h_conc_linear1 + h_conc_linear2 + h_embadd
-
-        output = self.linear(hidden)
+        # Get study level prediction
+        h_study_conc = torch.cat((max_pool, avg_pool), 1)
+        h_study_conc_linear1  = nn.functional.relu(self.study_linear1(h_study_conc))
+        study_hidden = h_conc + h_conc_linear1 
+        study_output = self.study_linear_out(study_hidden)
         
-        return output
-
+        # Get study level prediction
+        h_img_conc_linear1  = nn.functional.relu(self.img_linear1(h_lstm1))
+        h_img_conc_linear2  = nn.functional.relu(self.img_linear2(h_lstm2))
+        img_hidden = h_lstm1 + h_lstm2 + h_img_conc_linear1 + h_img_conc_linear2 # + h_embadd
+        img_output = self.img_linear_out(img_hidden)
+        
+        return study_output, img_output
 
 logger.info('Create model')
-model = NeuralNet(embmat.shape[0], LSTM_UNITS=args.lstm_units, DO = DROPOUT)
-model = model.to(device)
+model = NeuralNet(embed_size, LSTM_UNITS=args.lstm_units, DO = args.dropout)
+model = model.to(args.device)
+DECAY = 0.0
 
 param_optimizer = list(model.named_parameters())
 no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
@@ -175,178 +189,84 @@ plist = [
     {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': DECAY},
     {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
     ]
-optimizer = optim.Adam(plist, lr=lr)
-scheduler = StepLR(optimizer, 1, gamma=lrgamma, last_epoch=-1)
-model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+optimizer = torch.optim.Adam(plist, lr=args.lr)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=args.lrgamma, last_epoch=-1)
+criterion = torch.nn.BCEWithLogitsLoss()
 
-
-
-
-
-
-logger.info('Create model and optimisers')
-model = classifiers.__dict__[conf['network']](encoder=conf['encoder'], \
-                                              nclasses = len(conf['classes']) )
-model = model.to(args.device)
-reduction = "mean"
-
-losstype = list(conf['losses'].keys())[0]
-criterion = getLoss("BCEWithLogitsLoss", args.device)
-
-optimizer, scheduler = create_optimizer(conf['optimizer'], model)
-bce_best = 100
-start_epoch = 0
-batch_size = conf['optimizer']['batch_size']
-
-os.makedirs(args.logdir, exist_ok=True)
-summary_writer = SummaryWriter(args.logdir + '/' + conf.get("prefix", args.prefix) + conf['encoder'] + "_" + str(args.fold))
-
-if args.from_zero:
-    start_epoch = 0
-current_epoch = start_epoch
-
-if conf['fp16'] and args.device != 'cpu':
+ypredls = []
+ypredtstls = []
+if args.device != 'cpu':
     scaler = torch.cuda.amp.GradScaler()
     
-if args.swa_epochs < 999:
-    swa_start = conf['optimizer']['schedule']['epochs'] - args.swa_epochs
-    logger.info(f'Swa start @ epoch {swa_start}')
-    swa_model = AveragedModel(model)
-
-snapshot_name = "{}{}_{}_{}_".format(conf.get("prefix", args.prefix), conf['network'], conf['encoder'], args.fold)
-max_epochs = conf['optimizer']['schedule']['epochs']
-
-logger.info('Start training')
-epoch_img_names = defaultdict(list)
-
-'''
-alldf = pd.read_csv('data/train.csv.zip')
-allsampler = nSampler(alldf, pe_weight = 0.66, nmin = 2, nmax = 4, seed = None)
-len(allsampler.sample(alldf)) * 0.8
-'''
-seenratio=0  # Ratio of seen in images in previous epochs
-
-for epoch in range(start_epoch, max_epochs):
-    '''
-    Here we took out a load of things, check back 
-    https://github.com/selimsef/dfdc_deepfake_challenge/blob/9925d95bc5d6545f462cbfb6e9f37c69fa07fde3/training/pipelines/train_classifier.py#L188-L201
-    '''
     
-    '''
-    TRAIN
-    '''
-    ep_samps={'tot':0,'pos':0}
-    losses = AverageMeter()
-    max_iters = conf["batches_per_epoch"]
-    trnsampler = nSampler(trndataset.data, 
-                          pe_weight = conf['pe_ratio'], 
-                          nmin = conf['studynmin'], 
-                          nmax = conf['studynmax'], 
-                          seed = None)
-    if current_epoch == 0: 
-        trncts = trndataset.data.iloc[trnsampler.sample(trndataset.data)].pe_present_on_image.value_counts()
-        valcts = valdataset.data.iloc[valsampler.sample(valdataset.data)].pe_present_on_image.value_counts()
-        logger.info(f'Train class balance:\n{trncts}')
-        logger.info(f'Valid class balance:\n{valcts}')
-    trnloader = DataLoader(trndataset, batch_size=args.batchsize, sampler = trnsampler, **loaderargs)
-    swaloader = DataLoader(trndataset, batch_size=args.batchsize, sampler = trnsampler, **loaderargs)
-    model.train()
-    pbar = tqdm(enumerate(trnloader), total=max_iters, desc="Epoch {}".format(current_epoch), ncols=0)
-    if conf["optimizer"]["schedule"]["mode"] == "current_epoch":
-        scheduler.step(current_epoch)
-    for i, sample in pbar:
-        epoch_img_names[current_epoch] += sample['img_name']
-        imgs = sample["image"].to(args.device)
-        # logger.info(f'Mean {imgs.mean()} std {imgs.std()} ')
-        labels = sample["labels"].to(args.device).float()
-        r = np.random.rand(1)
-        if args.mixup_beta > 0:
-            # generate mixed sample
-            lam = np.random.beta(args.mixup_beta, args.mixup_beta)
-            rand_index = torch.randperm(imgs.size()[0]).to(args.device)
-            labels_a = labels
-            labels_b = labels[rand_index]
-            imgs = lam * imgs + (1 - lam) * imgs[rand_index]
+# TODO
+#   -- Add on study names to the batch
+#   -- Trouble shoot that sequence is coming out correctly
+
+for epoch in range(args.epochs):
+    tr_loss = 0.
+    for param in model.parameters():
+        param.requires_grad = True
+    model.train()  
+
+    for step, batch in enumerate(trnloader):
+        img_names = batch['img_name']
+        yimg = batch['imglabels'].to(args.device, dtype=torch.float)
+        ystudy = batch['studylabels'].to(args.device, dtype=torch.float)
+        mask = batch['mask'].to(args.device, dtype=torch.int)
+        x = batch['emb'].to(args.device, dtype=torch.float)
+        x = torch.autograd.Variable(x, requires_grad=True)
+        yimg = torch.autograd.Variable(yimg)
+        ystudy = torch.autograd.Variable(ystudy)
+        with autocast():
+            studylogits, imglogits = model(x, mask)#.to(args.device, dtype=torch.float)
+            # get the mask for masked img labels
+            maskidx = mask.view(-1)==1
+            yimg = yimg.view(-1, 1)[maskidx]
+            imglogits = imglogits.view(-1, 1)[maskidx]
+            # Get img loss
+            loss = criterion(imglogits, yimg)
+            # Get the study loss
+            # Keep going here
             
-        if conf['fp16'] and args.device != 'cpu':
-            with autocast():
-                out = model(imgs)
-                if args.mixup_beta > 0:
-                    loss = criterion(out, labels) * lam + \
-                            criterion(out, labels) * (1. - lam)
-                else:
-                    loss = criterion(out, labels) # 0.6710
-            scaler.scale(loss).backward()
-            if i % args.accum == 0:
-                optimizer.step()
-                optimizer.zero_grad()
-                scaler.step(optimizer)
-                scaler.update()
-        else:
-            out = model(imgs)
-            if args.mixup_beta > 0:
-                loss = criterion(out, labels) * lam + \
-                    criterion(out, labels) * (1. - lam)
-            else:
-                loss = criterion(out, labels)
-                loss.backward()
-            if i % args.accum == 0:
-                optimizer.step()
-        losses.update(loss.item(), imgs.size(0))
-        if i % args.accum == 0:
-            optimizer.zero_grad()
-        # if args.device != 'cpu': torch.cuda.synchronize()
-        pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, 
-                          "loss": losses.avg, 'seen_prev': seenratio })
         
-        if conf["optimizer"]["schedule"]["mode"] in ("step", "poly"):
-            scheduler.step(i + current_epoch * max_iters)
-        if epoch > swa_start:
-            swa_model.update_parameters(model)
-        if i>30: break
-        if i == max_iters - 1:
-            break
-    pbar.close()
-    del sample, img, labels
-    torch.cuda.empty_cache()
-    if epoch > swa_start:
-        swa_update_bn(trnloader, swa_model, args.device)
+        tr_loss += loss.item()
+        optimizer.zero_grad()
+        with amp.scale_loss(loss, optimizer) as scaled_loss:
+            scaled_loss.backward()
+        optimizer.step()
+        if step%1000==0:
+            logger.info('Trn step {} of {} trn lossavg {:.5f}'. \
+                        format(step, len(trnloader), (tr_loss/(1+step))))
+    output_model_file = os.path.join(WORK_DIR, 'weights/lstm_gepoch{}_lstmepoch{}_fold{}.bin'.format(GLOBALEPOCH, epoch, fold))
+    torch.save(model.state_dict(), output_model_file)
 
-    if epoch > 0:
-        seen = set(epoch_img_names[epoch]).intersection(
-            set(itertools.chain(*[epoch_img_names[i] for i in range(epoch)])))
-        seenratio = len(seen)/len(epoch_img_names[epoch])
-
-    for idx, param_group in enumerate(optimizer.param_groups):
-        lr = param_group['lr']
-        summary_writer.add_scalar('group{}/lr'.format(idx), float(lr), global_step=current_epoch)
-        summary_writer.add_scalar('train/loss', float(losses.avg), global_step=current_epoch)
-    model = model.eval()
+    scheduler.step()
+    model.eval()
+    '''
+    logger.info('Prep val score...')
+    ypred, imgval = predict(valloader)
+    ypredls.append(ypred)
+     
+    yvalpred = sum(ypredls[-nbags:])/len(ypredls[-nbags:])
+    yvalout = makeSub(yvalpred, imgval)
+    yvalp = makeSub(ypred, imgval)
     
-    # https://pytorch.org/blog/pytorch-1.6-now-includes-stochastic-weight-averaging/
-    # Update bn statistics for the swa_model at the end
-    if epoch > swa_start:
-        bce, acc, probdf = validate(swa_model, valloader, device = args.device)
-    else:
-        bce, acc, probdf = validate(model, valloader, device = args.device)
-
-    if args.local_rank == 0:
-        summary_writer.add_scalar('val/bce', float(bce), global_step=current_epoch)
-        if bce < bce_best:
-            print("Epoch {} improved from {:.5f} to {:.5f}".format(current_epoch, bce_best, bce))
-            if args.output_dir is not None:
-                torch.save({
-                    'epoch': current_epoch + 1,
-                    'state_dict': model.state_dict(),
-                    'bce_best': bce,
-                }, args.output_dir + snapshot_name + "_best_dice")
-            bce_best = bce
-            probdf.to_csv(args.output_dir + snapshot_name + "_best_probs.csv", index = False)
-        print("Epoch: {} bce: {:.5f}, bce_best: {:.5f}".format(current_epoch, bce, bce_best))
-    torch.save({
-        'epoch': current_epoch + 1,
-        'state_dict': model.state_dict(),
-        'bce_best': bce,
-        }, args.output_dir + snapshot_name + f"_fold{args.fold}_epoch{current_epoch}")
-
-    current_epoch += 1
+    # get Val score
+    weights = ([1, 1, 1, 1, 1, 2] * ypred.shape[0])
+    yact = valloader.dataset.data[label_cols].values#.flatten()
+    yact = makeSub(yact, valloader.dataset.data['Image'].tolist())
+    yact = yact.set_index('ID').loc[yvalout.ID].reset_index()
+    valloss = log_loss(yact['Label'].values, yvalp['Label'].values.clip(.00001,.99999) , sample_weight = weights)
+    vallossavg = log_loss(yact['Label'].values, yvalout['Label'].values.clip(.00001,.99999) , sample_weight = weights)
+    logger.info('Epoch {} val logloss {:.5f} bagged {:.5f}'.format(epoch, valloss, vallossavg))
+    '''
+    logger.info('Prep test sub...')
+    ypred, imgtst = predict(tstloader)
+    ypredtstls.append(ypred)
+    
+logger.info('Write out bagged prediction to preds folder')
+ytstpred = sum(ypredtstls[-nbags:])/len(ypredtstls[-nbags:])
+ytstout = makeSub(ytstpred, imgtst)
+ytstout.to_csv('preds/lstm{}{}{}_{}_epoch{}_sub_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, WORK_DIR.split('/')[-1], epoch, embnm), \
+            index = False, compression = 'gzip')
