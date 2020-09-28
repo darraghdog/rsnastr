@@ -4,15 +4,11 @@ This is the code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://ww
 
 #### To try
     Try higher LR
+    StepLR
     Fix ratio seen. 
-    Get RNN to check accuracy on negative pe
     Smooth labels over time
     Read up on other windowing approaches
-    *Check if larger batch size helps/ Up lr with accumulation
-    Add percentage seen for pos and neg and studies
     Save each of the best weights
-    Try average over folds
-    Fix scheduler
     Add fold to weights and logs
     Get a cycle up to test nmin and nmax
 
