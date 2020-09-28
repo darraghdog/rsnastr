@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import pickle
 import sys
 import gc
 import itertools
@@ -130,6 +131,8 @@ weightfiles = [w for w in weightfiles if any(e in w for e in epochs)]
 if args.runswa:
     logger.info('Run SWA')
     net= swa(model, weightfiles, trnloader, args.batchsize//2, args.device)
+    net = net.half().to(args.device)
+    net = net.eval()
     bce, acc, probdf = validate(net, valloader, device = args.device, logger=logger)
     print(f"SWA Bce: {bce:.5f}")
 
@@ -160,8 +163,10 @@ if args.emb:
         model = model.eval()
         pbar = tqdm(enumerate(valloader), total=len(valloader), desc="Weights {}".format(f), ncols=0)
         embls = []
+        img_names = []
         with torch.no_grad():
             for i, sample in pbar:
+                img_names += sample['img_name']
                 imgs = sample["image"].half().to(args.device)
                 emb = model(imgs)
                 embls.append(emb.detach().cpu().numpy().astype(np.float32))
@@ -171,7 +176,9 @@ if args.emb:
         fembname = fembname.replace(args.output_dir, '')
         logger.info('Embedding file name : {}'.format(fembname))
         np.savez_compressed(os.path.join('emb', fembname), outemb)
-        valdataset.data.to_pickle( f'emb/{fembname}.pk' )
+        valdataset.data.to_pickle( f'emb/{fembname}.data.pk' )
+        with open(f'emb/{fembname}.imgnames.pk', 'wb') as handle:
+            pickle.dump(img_names, handle, protocol=pickle.HIGHEST_PROTOCOL)
         gc.collect()
     
 '''

@@ -1,10 +1,33 @@
 
-python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 48 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/se101_lr1e4_binary_focal_pe0.25.json'
-python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/effnetb5_lr1e4_binary_focal_pe0.25.json'
-python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 48 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/mixnet_xl_lr1e4_binary_focal_pe0.25.json'
-python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 48 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/densenet169_lr1e4_binary_focal_pe0.25.json'
-python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 48 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/densenet201_lr1e4_binary_focal_pe0.25.json'
-python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/dpn92_lr1e4_binary_focal_pe0.25.json'
+: '
+Epoch: 24 bce: 0.32642, bce_best: 0.31309
+Epoch: 24 bce: 0.32289, bce_best: 0.32159
+Epoch: 24 bce: 0.31331, bce_best: 0.30927
+Epoch: 24 bce: 0.31583, bce_best: 0.30183
+Epoch: 24 bce: 0.32569, bce_best: 0.31173
+'
+python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/effnetb5_lr1e4_binary.json'
+python training/pipeline/train_image_classifier.py --device 'cuda' --fold 1 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/effnetb5_lr1e4_binary.json'
+python training/pipeline/train_image_classifier.py --device 'cuda' --fold 2 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/effnetb5_lr1e4_binary.json'
+python training/pipeline/train_image_classifier.py --device 'cuda' --fold 3 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/effnetb5_lr1e4_binary.json'
+python training/pipeline/train_image_classifier.py --device 'cuda' --fold 4 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/effnetb5_lr1e4_binary.json'
+
+python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config  'configs/densenet169_lr1e4_binary.json'
+python training/pipeline/train_image_classifier.py --device 'cuda' --fold 1 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config  'configs/densenet169_lr1e4_binary.json'
+python training/pipeline/train_image_classifier.py --device 'cuda' --fold 2 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config  'configs/densenet169_lr1e4_binary.json'
+python training/pipeline/train_image_classifier.py --device 'cuda' --fold 3 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config  'configs/densenet169_lr1e4_binary.json'
+python training/pipeline/train_image_classifier.py --device 'cuda' --fold 4 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config  'configs/densenet169_lr1e4_binary.json'
+
+
+#python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 48 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/se101_lr1e4_binary_focal_pe0.25.json'
+#python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/effnetb5_lr1e4_binary_focal_pe0.25.json'
+#python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 24 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/effnetb7_lr1e4_binary_focal_pe0.25.json'
+#python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 48 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/mixnet_xl_lr1e4_binary_focal_pe0.25.json'
+#python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 48 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/densenet169_lr1e4_binary_focal_pe0.25.json'
+#python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 48 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/densenet201_lr1e4_binary_focal_pe0.25.json'
+#python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/_lr2308/dpn92_lr1e4_binary_focal_pe0.25.json'
+
+
 
 #Fold 0 Epoch: 24 bce: 0.31407, bce_best: 0.31407
 #Fold 1 Epoch: 24 bce: 0.35100, bce_best: 0.32609
