@@ -6,6 +6,7 @@ from torch.optim import lr_scheduler
 from torch.optim.rmsprop import RMSprop
 from torch.optim.adamw import AdamW
 from torch.optim.lr_scheduler import MultiStepLR, CyclicLR
+from torch.optim.lr_scheduler import MultiStepLR, CyclicLR, StepLR
 
 from training.tools.schedulers import ExponentialLRScheduler, PolyLR, LRStepScheduler
 
@@ -99,8 +100,11 @@ def create_optimizer(optimizer_config, model, master_params=None):
     else:
         raise KeyError("unrecognized optimizer {}".format(optimizer_config["type"]))
 
+
     if optimizer_config["schedule"]["type"] == "step":
         scheduler = LRStepScheduler(optimizer, **optimizer_config["schedule"]["params"])
+    elif optimizer_config["schedule"]["type"] == "steplr":
+        scheduler = StepLR(optimizer, **optimizer_config["schedule"]["params"])
     elif optimizer_config["schedule"]["type"] == "clr":
         scheduler = CyclicLR(optimizer, **optimizer_config["schedule"]["params"])
     elif optimizer_config["schedule"]["type"] == "multistep":
