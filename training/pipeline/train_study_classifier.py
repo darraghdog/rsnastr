@@ -33,8 +33,9 @@ from torch.cuda.amp import autocast
 
 from tqdm import tqdm
 import torch.distributed as dist
-from training.datasets.classifier_dataset import RSNASequenceDataset, collateseqfn
-from training.zoo.sequence import SpatialDropout
+from training.datasets.classifier_dataset import RSNASequenceDataset, collateseqfn, \
+        valSeedSampler
+from training.zoo.sequence import SpatialDropout, LSTMNet
 from training.tools.utils import create_optimizer, AverageMeter
 from training.losses import getLoss
 from training import losses
@@ -79,14 +80,15 @@ arg('--label-smoothing', type=float, default=0.01)
 arg('--logdir', type=str, default='logs/b2_1820')
 arg("--local_rank", default=0, type=int)
 arg("--seed", default=777, type=int)
+arg("--embrgx", type=str, default='classifier_RSNAClassifier_tf_efficientnet_b5_ns_04d_*__fold*_epoch24__hflip0_transpose0_size320.emb')
 args = parser.parse_args()
 
 def takeimg(s):
     return s.split('/')[-1].replace('.jpg', '')
 
-embrgx = 'classifier_RSNAClassifier_resnext101_32x8d_*__fold*_epoch24__hflip*_transpose0_size320.emb'
-embrgx = 'classifier_RSNAClassifier_tf_efficientnet_b5_ns_04d_*__fold*_epoch24__hflip0_transpose0_size320.emb'
-datals = sorted(glob.glob(f'emb/{embrgx}*data.pk'))
+#embrgx = 'classifier_RSNAClassifier_resnext101_32x8d_*__fold*_epoch24__hflip*_transpose0_size320.emb'
+#embrgx = 'classifier_RSNAClassifier_tf_efficientnet_b5_ns_04d_*__fold*_epoch24__hflip0_transpose0_size320.emb'
+datals = sorted(glob.glob(f'emb/{args.embrgx}*data.pk'))
 imgls = []
 for i, f in enumerate(datals):
     logger.info(f'File load : {f}')
@@ -107,14 +109,6 @@ datadf = datadf.set_index('SOPInstanceUID').loc[imgls].reset_index()
 datadf.iloc[0]
 datadf.pe_present_on_image[:10000].plot()
 
-'''
-batch = []
-for b in trndataset:
-    batch.append(b)
-    if len(batch)>7:
-        break
-'''
-
 logger.info('Create traindatasets')
 trndataset = RSNASequenceDataset(datadf, 
                                    embmat, 
@@ -134,6 +128,13 @@ valdataset = RSNASequenceDataset(datadf,
                                    label_smoothing=args.label_smoothing,
                                    folds_csv=args.folds_csv)
 
+valmetadf = datadf[datadf.StudyInstanceUID.isin(folddf.query('fold==0').StudyInstanceUID)]
+valmetadf = valmetadf.set_index('SOPInstanceUID')
+valmeta = valSeedSampler(valmetadf, N = 5000, seed = args.seed)
+valmeta = pd.Series([i for i in valmeta])
+    
+
+
 logger.info('Create loaders...')
 trnloader = DataLoader(trndataset, batch_size=args.batchsize, shuffle=True, num_workers=4, collate_fn=collateseqfn)
 valloader = DataLoader(valdataset, batch_size=args.batchsize, shuffle=False, num_workers=4, collate_fn=collateseqfn)
@@ -141,58 +142,14 @@ embed_size = embmat.shape[1]
 del embmat
 gc.collect()
 
-
-# https://www.kaggle.com/bminixhofer/speed-up-your-rnn-with-sequence-bucketing
-class NeuralNet(nn.Module):
-    def __init__(self, embed_size, LSTM_UNITS=64, DO = 0.3):
-        super(NeuralNet, self).__init__()
-        
-        self.embed_size = embed_size
-        self.embedding_dropout = SpatialDropout(0.0) #DO)
-        
-        self.lstm1 = nn.LSTM(embed_size, LSTM_UNITS, bidirectional=True, batch_first=True)
-        self.lstm2 = nn.LSTM(LSTM_UNITS * 2, LSTM_UNITS, bidirectional=True, batch_first=True)
-
-        self.img_linear1 = nn.Linear(LSTM_UNITS*2, LSTM_UNITS*2)
-        self.img_linear2 = nn.Linear(LSTM_UNITS*2, LSTM_UNITS*2)
-        self.study_linear1 = nn.Linear(LSTM_UNITS*4, LSTM_UNITS*4)
-
-        self.img_linear_out = nn.Linear(LSTM_UNITS*2, 1)
-        self.study_linear_out = nn.Linear(LSTM_UNITS*4, 1)
-
-    def forward(self, x, mask, lengths=None):
-        
-        h_embedding = x
-
-        h_embadd = torch.cat((h_embedding[:,:,:self.embed_size], h_embedding[:,:,:self.embed_size]), -1)
-        
-        h_lstm1, _ = self.lstm1(h_embedding)
-        h_lstm2, _ = self.lstm2(h_lstm1)
-        
-        # Masked mean and max pool for study level prediction
-        avg_pool = torch.sum(h_lstm2, 1) * (1/ mask.sum(1)).unsqueeze(1)
-        max_pool, _ = torch.max(h_lstm2, 1)
-        
-        # Get study level prediction
-        h_study_conc = torch.cat((max_pool, avg_pool), 1)
-        h_study_conc_linear1  = nn.functional.relu(self.study_linear1(h_study_conc))
-        study_hidden = h_study_conc + h_study_conc_linear1
-        study_output = self.study_linear_out(study_hidden)
-        
-        # Get study level prediction
-        h_img_conc_linear1  = nn.functional.relu(self.img_linear1(h_lstm1))
-        h_img_conc_linear2  = nn.functional.relu(self.img_linear2(h_lstm2))
-        img_hidden = h_lstm1 + h_lstm2 + h_img_conc_linear1 + h_img_conc_linear2 # + h_embadd
-        img_output = self.img_linear_out(img_hidden)
-        
-        return study_output, img_output
+batch = next(iter(trnloader))
 
 logger.info('Create model')
-model = NeuralNet(embed_size, LSTM_UNITS=args.lstm_units, DO = args.dropout)
+model = LSTMNet(embed_size, LSTM_UNITS=args.lstm_units, DO = args.dropout)
 model = model.to(args.device)
 DECAY = 0.0
 
-batch = next(iter(trnloader))
+# batch = next(iter(trnloader))
 
 param_optimizer = list(model.named_parameters())
 no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
@@ -206,21 +163,20 @@ criterion = torch.nn.BCEWithLogitsLoss()
 
 ypredls = []
 ypredtstls = []
-if args.device != 'cpu':
-    scaler = torch.cuda.amp.GradScaler()
+scaler = torch.cuda.amp.GradScaler()
     
     
 # TODO
-#   -- Add on study names to the batch
 #   -- Trouble shoot that sequence is coming out correctly
-
+logger.info('Start training')
 for epoch in range(args.epochs):
     tr_loss = 0.
     for param in model.parameters():
         param.requires_grad = True
     model.train()  
-
+    #break
     for step, batch in enumerate(trnloader):
+        #break
         img_names = batch['img_name']
         yimg = batch['imglabels'].to(args.device, dtype=torch.float)
         ystudy = batch['studylabels'].to(args.device, dtype=torch.float)
@@ -251,7 +207,8 @@ for epoch in range(args.epochs):
         if step%1000==0:
             logger.info('Trn step {} of {} trn lossavg {:.5f}'. \
                         format(step, len(trnloader), (tr_loss/(1+step))))
-    output_model_file = os.path.join(WORK_DIR, 'weights/lstm_gepoch{}_lstmepoch{}_fold{}.bin'.format(GLOBALEPOCH, epoch, fold))
+    #output_model_file = os.path.join(WORK_DIR, 'weights/lstm_gepoch{}_lstmepoch{}_fold{}.bin'.format(GLOBALEPOCH, epoch, fold))
+    output_model_file = f'weights/sequential_lstmepoch{epoch}_fold{args.fold}.bin'
     torch.save(model.state_dict(), output_model_file)
 
     scheduler.step()
@@ -259,23 +216,51 @@ for epoch in range(args.epochs):
     model.eval()
     valimgls = []
     valpreds = []
+    valimglabel = []
     for step, batch in enumerate(valloader):
         img_names = batch['img_name']
         ystudy = batch['studylabels'].to(args.device, dtype=torch.float)
         mask = batch['mask'].to(args.device, dtype=torch.int)
         x = batch['emb'].to(args.device, dtype=torch.float)
+        yimg = batch['imglabels'].to(args.device, dtype=torch.float)
+        ystudy = batch['studylabels'].to(args.device, dtype=torch.float)
         x = torch.autograd.Variable(x, requires_grad=True)
         studylogits, imglogits = model(x, mask)#.to(args.device, dtype=torch.float)
         # get the mask for masked img labels
         maskidx = mask.view(-1)==1
         imglogits = imglogits.view(-1, 1)[maskidx]
-        valpreds = torch.sigmoid(imglogits).detach().cpu().numpy().flatten().tolist()
-        valimgls = img_names.flatten()[maskidx]
+        valpreds += torch.sigmoid(imglogits).detach().cpu().numpy().flatten().tolist()
+        valimgls += img_names.flatten()[maskidx].tolist()
+        valimglabel += yimg.view(-1, 1)[maskidx].flatten().tolist()
     
-    preddf = pd.DataFrame({'pred': valpreds}, index = valimgls)
+    preddf = pd.DataFrame({'pred': valpreds, 'yact': valimglabel }, index = valimgls)
     
-logger.info('Write out bagged prediction to preds folder')
-ytstpred = sum(ypredtstls[-nbags:])/len(ypredtstls[-nbags:])
-ytstout = makeSub(ytstpred, imgtst)
-ytstout.to_csv('preds/lstm{}{}{}_{}_epoch{}_sub_{}.csv.gz'.format(TTAHFLIP, TTATRANSPOSE, LSTM_UNITS, WORK_DIR.split('/')[-1], epoch, embnm), \
-            index = False, compression = 'gzip')
+    preddf = preddf.loc[valmeta.values]
+    yact = datadf.set_index('SOPInstanceUID').loc[preddf.index]
+    
+    
+    logger.info('Image level logloss')
+    negimg_idx = ((yact.pe_present_on_image < 0.5) & (yact.negative_exam_for_pe < 0.5)).values
+    posimg_idx = ((yact.pe_present_on_image > 0.5) & (yact.negative_exam_for_pe < 0.5)).values
+    negstd_idx = ((yact.pe_present_on_image < 0.5) & (yact.negative_exam_for_pe > 0.5)).values
+    probs = preddf.pred
+    targets = preddf.yact
+
+    negimg_loss = log_loss(targets[negimg_idx], probs[negimg_idx], labels=[0, 1])
+    negimg_acc = (targets[negimg_idx] == (probs[negimg_idx] > 0.5).astype(np.int).flatten()).mean()
+    posimg_loss = log_loss(targets[posimg_idx], probs[posimg_idx], labels=[0, 1])
+    posimg_acc = (targets[posimg_idx] == (probs[posimg_idx] > 0.5).astype(np.int).flatten()).mean()
+    negstd_loss = log_loss(targets[negstd_idx], probs[negstd_idx], labels=[0, 1])
+    negstd_acc = (targets[negstd_idx] == (probs[negstd_idx] > 0.5).astype(np.int).flatten()).mean()
+    
+    avg_acc = (negimg_acc + posimg_acc + negstd_acc) / 3
+    avg_loss= (negimg_loss + posimg_loss + negstd_loss) / 3
+    log = f'Negimg PosStudy loss {negimg_loss:.4f} acc {negimg_acc:.4f}; '
+    log += f'Posimg PosStudy loss {posimg_loss:.4f} acc {posimg_acc:.4f}; '
+    log += f'Negimg NegStudy loss {negstd_loss:.4f} acc {negstd_acc:.4f}; '
+    log += f'Avg 3 loss {avg_loss:.4f} acc {avg_acc:.4f}'
+    logger.info(log)
+    probdf = pd.DataFrame({'img': img_names, 
+                           'label': targets.flatten(),
+                           'studype': targets.flatten(),
+                           'probs': probs.flatten()})
