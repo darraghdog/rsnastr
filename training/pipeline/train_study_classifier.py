@@ -217,6 +217,8 @@ for epoch in range(args.epochs):
     valimgls = []
     valpreds = []
     valimglabel = []
+    valstudylabel = []
+    valstudypreds = []
     for step, batch in enumerate(valloader):
         img_names = batch['img_name']
         ystudy = batch['studylabels'].to(args.device, dtype=torch.float)
@@ -232,12 +234,17 @@ for epoch in range(args.epochs):
         valpreds += torch.sigmoid(imglogits).detach().cpu().numpy().flatten().tolist()
         valimgls += img_names.flatten()[maskidx].tolist()
         valimglabel += yimg.view(-1, 1)[maskidx].flatten().tolist()
+        # Study level loss
+        valstudylabel += ystudy.detach().cpu().numpy().flatten().tolist()
+        valstudypreds += torch.sigmoid(studylogits).detach().cpu().numpy().flatten().tolist()
     
     preddf = pd.DataFrame({'pred': valpreds, 'yact': valimglabel }, index = valimgls)
     
     preddf = preddf.loc[valmeta.values]
     yact = datadf.set_index('SOPInstanceUID').loc[preddf.index]
     
+    studylloss = log_loss(valstudylabel, valstudypreds)
+    logger.info(f'Study level logloss : {studylloss:.5f}')
     
     logger.info('Image level logloss')
     negimg_idx = ((yact.pe_present_on_image < 0.5) & (yact.negative_exam_for_pe < 0.5)).values
