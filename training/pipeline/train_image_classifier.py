@@ -315,14 +315,13 @@ for epoch in range(start_epoch, max_epochs):
                     'epoch': current_epoch + 1,
                     'state_dict': model.state_dict(),
                     'bce_best': bce,
-                }, args.output_dir + snapshot_name + "_best_dice")
+                }, args.output_dir + snapshot_name + f"_fold{args.fold}_best_dice")
             bce_best = bce
-            probdf.to_csv(args.output_dir + snapshot_name + "_best_probs.csv", index = False)
+            probdf.to_csv(args.output_dir + snapshot_name + f"_fold{args.fold}_best_probs.csv", index = False)
         print("Epoch: {} bce: {:.5f}, bce_best: {:.5f}".format(current_epoch, bce, bce_best))
     torch.save({
         'epoch': current_epoch + 1,
         'state_dict': model.state_dict(),
         'bce_best': bce,
         }, args.output_dir + snapshot_name + f"_fold{args.fold}_epoch{current_epoch}")
-
     current_epoch += 1
