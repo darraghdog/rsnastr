@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import glob
+import pickle
 import gc
 import sys
 import itertools
@@ -80,23 +81,31 @@ arg("--local_rank", default=0, type=int)
 arg("--seed", default=777, type=int)
 args = parser.parse_args()
 
+def takeimg(s):
+    return s.split('/')[-1].replace('.jpg', '')
+
 embrgx = 'classifier_RSNAClassifier_resnext101_32x8d_*__fold*_epoch24__hflip*_transpose0_size320.emb'
-datals = sorted(glob.glob(f'emb/{embrgx}*.pk'))
+embrgx = 'classifier_RSNAClassifier_tf_efficientnet_b5_ns_04d_*__fold*_epoch24__hflip0_transpose0_size320.emb'
+datals = sorted(glob.glob(f'emb/{embrgx}*data.pk'))
+imgls = []
 for i, f in enumerate(datals):
     logger.info(f'File load : {f}')
-    if i > 1:
-        logger.info('Skip')
-        continue
+    dfname, embname, imgnm = f, f.replace('.data.pk', '.npz'), f.replace('.data.pk', '.imgnames.pk')
     if i == 0:
-        datadf = pd.read_pickle(f)
-        embmat = np.load(f.replace('.pk', '.npz'))['arr_0']
+        datadf = pd.read_pickle(dfname)
+        embmat = np.load(embname)['arr_0']
     if i>0:
-        embmat = np.append( embmat, np.load(f.replace('.pk', '.npz'))['arr_0'], 0)
-        datadf = pd.concat([datadf, pd.read_pickle(f)], 0)
+        embmat = np.append( embmat, np.load(embname)['arr_0'], 0)
+        datadf = pd.concat([datadf, pd.read_pickle(dfname)], 0)
+    imgls += list(map(takeimg, pickle.load( open( imgnm, "rb" ) )))
     logger.info(f'Embedding shape : {embmat.shape}')
     logger.info(f'DataFrame shape : {datadf.shape}')
+    logger.info(f'DataFrame shape : {len(imgls)}')
     gc.collect()
 folddf = pd.read_csv(f'{args.data_dir}/{args.folds_csv}')
+datadf = datadf.set_index('SOPInstanceUID').loc[imgls].reset_index()
+datadf.iloc[0]
+datadf.pe_present_on_image[:10000].plot()
 
 '''
 batch = []
@@ -167,7 +176,7 @@ class NeuralNet(nn.Module):
         # Get study level prediction
         h_study_conc = torch.cat((max_pool, avg_pool), 1)
         h_study_conc_linear1  = nn.functional.relu(self.study_linear1(h_study_conc))
-        study_hidden = h_conc + h_conc_linear1 
+        study_hidden = h_study_conc + h_study_conc_linear1
         study_output = self.study_linear_out(study_hidden)
         
         # Get study level prediction
@@ -182,6 +191,8 @@ logger.info('Create model')
 model = NeuralNet(embed_size, LSTM_UNITS=args.lstm_units, DO = args.dropout)
 model = model.to(args.device)
 DECAY = 0.0
+
+batch = next(iter(trnloader))
 
 param_optimizer = list(model.named_parameters())
 no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
@@ -223,18 +234,20 @@ for epoch in range(args.epochs):
             # get the mask for masked img labels
             maskidx = mask.view(-1)==1
             yimg = yimg.view(-1, 1)[maskidx]
+            img_names = img_names.flatten()[maskidx]
             imglogits = imglogits.view(-1, 1)[maskidx]
             # Get img loss
-            loss = criterion(imglogits, yimg)
+            loss1 = criterion(imglogits, yimg)
             # Get the study loss
-            # Keep going here
-            
-        
+            loss2 = criterion(studylogits, ystudy)
+            # Try average of both losses for the start
+            loss = 0.5 * (loss1 + loss2)
+
         tr_loss += loss.item()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
         optimizer.zero_grad()
-        with amp.scale_loss(loss, optimizer) as scaled_loss:
-            scaled_loss.backward()
-        optimizer.step()
         if step%1000==0:
             logger.info('Trn step {} of {} trn lossavg {:.5f}'. \
                         format(step, len(trnloader), (tr_loss/(1+step))))
@@ -242,28 +255,24 @@ for epoch in range(args.epochs):
     torch.save(model.state_dict(), output_model_file)
 
     scheduler.step()
-    model.eval()
-    '''
-    logger.info('Prep val score...')
-    ypred, imgval = predict(valloader)
-    ypredls.append(ypred)
-     
-    yvalpred = sum(ypredls[-nbags:])/len(ypredls[-nbags:])
-    yvalout = makeSub(yvalpred, imgval)
-    yvalp = makeSub(ypred, imgval)
-    
-    # get Val score
-    weights = ([1, 1, 1, 1, 1, 2] * ypred.shape[0])
-    yact = valloader.dataset.data[label_cols].values#.flatten()
-    yact = makeSub(yact, valloader.dataset.data['Image'].tolist())
-    yact = yact.set_index('ID').loc[yvalout.ID].reset_index()
-    valloss = log_loss(yact['Label'].values, yvalp['Label'].values.clip(.00001,.99999) , sample_weight = weights)
-    vallossavg = log_loss(yact['Label'].values, yvalout['Label'].values.clip(.00001,.99999) , sample_weight = weights)
-    logger.info('Epoch {} val logloss {:.5f} bagged {:.5f}'.format(epoch, valloss, vallossavg))
-    '''
     logger.info('Prep test sub...')
-    ypred, imgtst = predict(tstloader)
-    ypredtstls.append(ypred)
+    model.eval()
+    valimgls = []
+    valpreds = []
+    for step, batch in enumerate(valloader):
+        img_names = batch['img_name']
+        ystudy = batch['studylabels'].to(args.device, dtype=torch.float)
+        mask = batch['mask'].to(args.device, dtype=torch.int)
+        x = batch['emb'].to(args.device, dtype=torch.float)
+        x = torch.autograd.Variable(x, requires_grad=True)
+        studylogits, imglogits = model(x, mask)#.to(args.device, dtype=torch.float)
+        # get the mask for masked img labels
+        maskidx = mask.view(-1)==1
+        imglogits = imglogits.view(-1, 1)[maskidx]
+        valpreds = torch.sigmoid(imglogits).detach().cpu().numpy().flatten().tolist()
+        valimgls = img_names.flatten()[maskidx]
+    
+    preddf = pd.DataFrame({'pred': valpreds}, index = valimgls)
     
 logger.info('Write out bagged prediction to preds folder')
 ytstpred = sum(ypredtstls[-nbags:])/len(ypredtstls[-nbags:])
