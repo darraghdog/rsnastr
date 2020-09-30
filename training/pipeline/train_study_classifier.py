@@ -171,6 +171,8 @@ scaler = torch.cuda.amp.GradScaler()
 logger.info('Start training')
 for epoch in range(args.epochs):
     tr_loss = 0.
+    tr_loss1 = 0.
+    tr_loss2 = 0.
     for param in model.parameters():
         param.requires_grad = True
     model.train()  
@@ -190,7 +192,6 @@ for epoch in range(args.epochs):
             # get the mask for masked img labels
             maskidx = mask.view(-1)==1
             yimg = yimg.view(-1, 1)[maskidx]
-            img_names = img_names.flatten()[maskidx]
             imglogits = imglogits.view(-1, 1)[maskidx]
             # Get img loss
             loss1 = criterion(imglogits, yimg)
@@ -198,15 +199,17 @@ for epoch in range(args.epochs):
             loss2 = criterion(studylogits, ystudy)
             # Try average of both losses for the start
             loss = 0.5 * (loss1 + loss2)
-
+        img_names = img_names.flatten()[maskidx.detach().cpu().numpy()]
         tr_loss += loss.item()
+        tr_loss1 += loss1.item()
+        tr_loss2 += loss2.item()
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
         optimizer.zero_grad()
-        if step%1000==0:
-            logger.info('Trn step {} of {} trn lossavg {:.5f}'. \
-                        format(step, len(trnloader), (tr_loss/(1+step))))
+        if step%250==0:
+            logger.info('Trn step {} of {} trn lossavg {:.5f} img loss {:.5f} study loss {:.5f}'. \
+                        format(step, len(trnloader), (tr_loss/(1+step)), (tr_loss1/(1+step)), (tr_loss2/(1+step))))
     #output_model_file = os.path.join(WORK_DIR, 'weights/lstm_gepoch{}_lstmepoch{}_fold{}.bin'.format(GLOBALEPOCH, epoch, fold))
     output_model_file = f'weights/sequential_lstmepoch{epoch}_fold{args.fold}.bin'
     torch.save(model.state_dict(), output_model_file)
@@ -232,8 +235,8 @@ for epoch in range(args.epochs):
         maskidx = mask.view(-1)==1
         imglogits = imglogits.view(-1, 1)[maskidx]
         valpreds += torch.sigmoid(imglogits).detach().cpu().numpy().flatten().tolist()
-        valimgls += img_names.flatten()[maskidx].tolist()
-        valimglabel += yimg.view(-1, 1)[maskidx].flatten().tolist()
+        valimgls += img_names.flatten()[maskidx.detach().cpu().numpy()].tolist()
+        valimglabel += yimg.view(-1, 1)[maskidx].detach().cpu().flatten().tolist()
         # Study level loss
         valstudylabel += ystudy.detach().cpu().numpy().flatten().tolist()
         valstudypreds += torch.sigmoid(studylogits).detach().cpu().numpy().flatten().tolist()
@@ -252,13 +255,14 @@ for epoch in range(args.epochs):
     negstd_idx = ((yact.pe_present_on_image < 0.5) & (yact.negative_exam_for_pe > 0.5)).values
     probs = preddf.pred
     targets = preddf.yact
-
+    #logger.info((targets[negimg_idx] == (probs[negimg_idx] > 0.5)))
+    #logger.info((targets[negimg_idx] == (probs[negimg_idx] > 0.5)).shape)
     negimg_loss = log_loss(targets[negimg_idx], probs[negimg_idx], labels=[0, 1])
-    negimg_acc = (targets[negimg_idx] == (probs[negimg_idx] > 0.5).astype(np.int).flatten()).mean()
+    negimg_acc = (targets[negimg_idx] == (probs[negimg_idx] > 0.5).astype(np.int).values.flatten()).mean()
     posimg_loss = log_loss(targets[posimg_idx], probs[posimg_idx], labels=[0, 1])
-    posimg_acc = (targets[posimg_idx] == (probs[posimg_idx] > 0.5).astype(np.int).flatten()).mean()
+    posimg_acc = (targets[posimg_idx] == (probs[posimg_idx] > 0.5).astype(np.int).values.flatten()).mean()
     negstd_loss = log_loss(targets[negstd_idx], probs[negstd_idx], labels=[0, 1])
-    negstd_acc = (targets[negstd_idx] == (probs[negstd_idx] > 0.5).astype(np.int).flatten()).mean()
+    negstd_acc = (targets[negstd_idx] == (probs[negstd_idx] > 0.5).astype(np.int).values.flatten()).mean()
     
     avg_acc = (negimg_acc + posimg_acc + negstd_acc) / 3
     avg_loss= (negimg_loss + posimg_loss + negstd_loss) / 3
@@ -267,7 +271,9 @@ for epoch in range(args.epochs):
     log += f'Negimg NegStudy loss {negstd_loss:.4f} acc {negstd_acc:.4f}; '
     log += f'Avg 3 loss {avg_loss:.4f} acc {avg_acc:.4f}'
     logger.info(log)
+    '''
     probdf = pd.DataFrame({'img': img_names, 
-                           'label': targets.flatten(),
-                           'studype': targets.flatten(),
-                           'probs': probs.flatten()})
+                           'label': targets.values.flatten(),
+                           'studype': targets.values.flatten(),
+                           'probs': probs.values.flatten()})
+    '''
