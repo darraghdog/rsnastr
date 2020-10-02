@@ -220,7 +220,6 @@ def rsna_criterion(y_pred_exam_,
 #   -- Trouble shoot that sequence is coming out correctly
 logger.info('Start training')
 for epoch in range(args.epochs):
-    break
     tr_loss = 0.
     tr_loss1 = 0.
     tr_loss2 = 0.
@@ -229,7 +228,6 @@ for epoch in range(args.epochs):
     model.train()  
     #break
     for step, batch in enumerate(trnloader):
-        break
         img_names = batch['img_name']
         yimg = batch['imglabels'].to(args.device, dtype=torch.float)
         ystudy = batch['studylabels'].to(args.device, dtype=torch.float)
