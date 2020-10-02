@@ -176,7 +176,7 @@ ypredtstls = []
 scaler = torch.cuda.amp.GradScaler()
 
 bce_func_exam = torch.nn.BCEWithLogitsLoss(reduction='none', 
-                                weight = torch.tensor(CFG['exam_weights']))
+                    weight = torch.tensor(CFG['exam_weights']).to(args.device))
 bce_func_img = torch.nn.BCEWithLogitsLoss(reduction='none')
 
 def groupBy(samples, labels, unique_labels, labels_count, grptype = 'mean'):
