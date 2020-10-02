@@ -93,7 +93,6 @@ datals = sorted(glob.glob(f'emb/{args.embrgx}*data.pk'))
 imgls = []
 for i, f in enumerate(datals):
     logger.info(f'File load : {f}')
-    if i>1: continue
     dfname, embname, imgnm = f, f.replace('.data.pk', '.npz'), f.replace('.data.pk', '.imgnames.pk')
     if i == 0:
         datadf = pd.read_pickle(dfname)
@@ -324,7 +323,7 @@ for epoch in range(args.epochs):
     valstudypreds = torch.cat(valstudypreds).to(args.device)
 
     valloss = rsna_criterion(studylogits, ystudy, imglogits, yimg, lelabels, img_wt)
-    logger.info(f'Epoch {epoch} from {args.epochs} val loss {valloss}')
+    logger.info(f'Epoch {epoch} from {args.epochs} val loss {valloss:.5f}')
     del vallelabels, valimgpreds, valimglabel, valstudylabel, valstudypreds
         
     '''
