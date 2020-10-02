@@ -282,7 +282,6 @@ for epoch in range(args.epochs):
     valstudypreds = []
     for step, batch in enumerate(valloader):
         logger.info(step)
-        if step>5:break
         img_names = batch['img_name']
         yimg = batch['imglabels'].to(args.device, dtype=torch.float)
         ystudy = batch['studylabels'].to(args.device, dtype=torch.float)
@@ -328,7 +327,7 @@ for epoch in range(args.epochs):
     valstudylabel = torch.cat(valstudylabel).to(args.device)
     valstudypreds = torch.cat(valstudypreds).to(args.device)
 
-    valloss = rsna_criterion(studylogits, ystudy, imglogits, yimg, lelabels, img_wt)
+    valloss = rsna_criterion(valstudypreds, valstudylabel, valimgpreds, valimglabel, vallelabels, img_wt)
     logger.info(f'Epoch {epoch} from {args.epochs} val loss {valloss:.5f}')
     del vallelabels, valimgpreds, valimglabel, valstudylabel, valstudypreds
         
