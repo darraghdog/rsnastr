@@ -281,7 +281,6 @@ for epoch in range(args.epochs):
     valstudylabel = []
     valstudypreds = []
     for step, batch in enumerate(valloader):
-        logger.info(step)
         img_names = batch['img_name']
         yimg = batch['imglabels'].to(args.device, dtype=torch.float)
         ystudy = batch['studylabels'].to(args.device, dtype=torch.float)
