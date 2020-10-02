@@ -269,8 +269,8 @@ for epoch in range(args.epochs):
         scaler.update()
         optimizer.zero_grad()
         if step%250==0:
-            logger.info('Trn step {} of {} trn lossavg {:.5f} img loss {:.5f} study loss {:.5f}'. \
-                        format(step, len(trnloader), (tr_loss/(1+step)), (tr_loss1/(1+step)), (tr_loss2/(1+step))))
+            logger.info('Trn step {} of {} trn lossavg {:.5f}'. \
+                        format(step, len(trnloader), (tr_loss/(1+step))))
     #output_model_file = os.path.join(WORK_DIR, 'weights/lstm_gepoch{}_lstmepoch{}_fold{}.bin'.format(GLOBALEPOCH, epoch, fold))
     output_model_file = f'weights/sequential_lstmepoch{epoch}_fold{args.fold}.bin'
     torch.save(model.state_dict(), output_model_file)
