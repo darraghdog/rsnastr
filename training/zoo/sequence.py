@@ -22,9 +22,16 @@ class SpatialDropout(nn.Dropout2d):
     
 # https://www.kaggle.com/bminixhofer/speed-up-your-rnn-with-sequence-bucketing
 class LSTMNet(nn.Module):
-    def __init__(self, embed_size, LSTM_UNITS=64, DO = 0.3):
+    def __init__(self, 
+                 embed_size, 
+                 nimgclasses = 1, 
+                 nstudyclasses = 9, 
+                 LSTM_UNITS=64, 
+                 DO = 0.3):
         super(LSTMNet, self).__init__()
         
+        self.nimgclasses = nimgclasses
+        self.nstudyclasses = nstudyclasses
         self.embed_size = embed_size
         self.embedding_dropout = SpatialDropout(0.0) #DO)
         
@@ -35,8 +42,8 @@ class LSTMNet(nn.Module):
         self.img_linear2 = nn.Linear(LSTM_UNITS*2, LSTM_UNITS*2)
         self.study_linear1 = nn.Linear(LSTM_UNITS*4, LSTM_UNITS*4)
 
-        self.img_linear_out = nn.Linear(LSTM_UNITS*2, 1)
-        self.study_linear_out = nn.Linear(LSTM_UNITS*4, 1)
+        self.img_linear_out = nn.Linear(LSTM_UNITS*2, self.nimgclasses)
+        self.study_linear_out = nn.Linear(LSTM_UNITS*4, self.nstudyclasses)
 
     def forward(self, x, mask, lengths=None):
         

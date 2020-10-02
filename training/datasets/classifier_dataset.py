@@ -31,7 +31,8 @@ class RSNASequenceDataset(Dataset):
                  fold = 0, 
                  labeltype='all', 
                  label = True,
-                 classes=["pe_present_on_image"],
+                 imgclasses=["pe_present_on_image"],
+                 studyclasses=["pe_present_on_image"],
                  label_smoothing=0.01,
                  folds_csv='folds.csv.gz'):
         self.mode = mode
@@ -43,8 +44,10 @@ class RSNASequenceDataset(Dataset):
             self.folddf = self.folddf[idx].reset_index(drop=True)
         if mode == "valid":
             self.folddf = folddf.query('fold == @self.fold')
-        self.classes = classes
-        self.studyclasses = [c for c in self.classes if 'pe_present_on_image'!=c]
+        self.folddf = pd.merge(self.folddf, self.datadf.reset_index() \
+                          .filter(regex='Study|Series').drop_duplicates())
+        self.imgclasses = imgclasses
+        self.studyclasses = studyclasses
         self.label_smoothing = label_smoothing
         self.labeltype = labeltype
         self.embmat = embmat
@@ -54,19 +57,24 @@ class RSNASequenceDataset(Dataset):
         return len(self.folddf)
 
     def __getitem__(self, idx):
+        # idx = 0
         studyidx = self.folddf.iloc[idx].StudyInstanceUID
-        studydf = self.datadf.loc[studyidx]
+        seriesidx = self.folddf.iloc[idx].SeriesInstanceUID
+        studydf = self.datadf.loc[studyidx].query('SeriesInstanceUID == @seriesidx')
         embidx = self.datadf.index == studyidx
         studyemb = self.embmat[embidx]
         imgnames  = studydf.SOPInstanceUID.values
         
-        out = {'emb': studyemb, 'img_name' : imgnames}
+        out = {'emb': studyemb, 
+               'img_name' : imgnames, 
+               'study_name' : studyidx, 
+               'series_name' : seriesidx}
         
         if self.mode == 'test':
             return out
         
-        if 'pe_present_on_image' in self.classes :
-            out['imglabels'] = studydf[['pe_present_on_image']].values
+        if 'pe_present_on_image' in self.imgclasses :
+            out['imglabels'] = studydf[self.imgclasses].values
             
         if len(self.studyclasses) > 0:
             out['studylabels'] = studydf[self.studyclasses].drop_duplicates().values
@@ -97,8 +105,15 @@ def collateseqfn(batch):
                                                 for b in batch])).float()}  
     outbatch['mask'] = torch.tensor(np.vstack([np.expand_dims(b['mask'], 0) \
                                                 for b in batch])).float()
-    outbatch['img_name'] =  np.vstack([np.expand_dims(b['img_name'], 0) \
+    outbatch['img_name'] = np.vstack([np.expand_dims(b['img_name'], 0) \
                                                 for b in batch])
+    # Create an label id for each study - label encoder
+    outbatch['lelabels'] = torch.ones(outbatch['mask'].shape) * \
+                                    torch.arange(len(batch)).unsqueeze(1)
+
+    outbatch['study_name'] = [b['study_name'] for b in batch]
+    outbatch['series_name'] = [b['series_name'] for b in batch]
+    
     if withimglabel:
         outbatch['imglabels'] = torch.tensor(np.vstack([np.expand_dims(b['imglabels'], 0) for b in batch])).float()
         outbatch['imglabels'] = outbatch['imglabels'].squeeze(-1)
