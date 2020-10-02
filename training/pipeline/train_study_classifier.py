@@ -94,6 +94,8 @@ imgls = []
 for i, f in enumerate(datals):
     logger.info(f'File load : {f}')
     dfname, embname, imgnm = f, f.replace('.data.pk', '.npz'), f.replace('.data.pk', '.imgnames.pk')
+    if i> 1:
+        break
     if i == 0:
         datadf = pd.read_pickle(dfname)
         embmat = np.load(embname)['arr_0']
