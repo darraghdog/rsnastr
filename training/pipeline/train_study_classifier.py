@@ -221,8 +221,6 @@ def rsna_criterion(y_pred_exam_,
 logger.info('Start training')
 for epoch in range(args.epochs):
     tr_loss = 0.
-    tr_loss1 = 0.
-    tr_loss2 = 0.
     for param in model.parameters():
         param.requires_grad = True
     model.train()  
@@ -262,15 +260,12 @@ for epoch in range(args.epochs):
             
         img_names = img_names.flatten()[maskidx.detach().cpu().numpy()]
         tr_loss += loss.item()
-        tr_loss1 += loss1.item()
-        tr_loss2 += loss2.item()
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
         optimizer.zero_grad()
         if step%250==0:
-            logger.info('Trn step {} of {} trn lossavg {:.5f}'. \
-                        format(step, len(trnloader), (tr_loss/(1+step))))
+            logger.info('Trn step {step} of {len(trnloader)} trn lossavg {(tr_loss/(1+step)):.5f}')
     #output_model_file = os.path.join(WORK_DIR, 'weights/lstm_gepoch{}_lstmepoch{}_fold{}.bin'.format(GLOBALEPOCH, epoch, fold))
     output_model_file = f'weights/sequential_lstmepoch{epoch}_fold{args.fold}.bin'
     torch.save(model.state_dict(), output_model_file)
