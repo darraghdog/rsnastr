@@ -220,12 +220,13 @@ def rsna_criterion(y_pred_exam_,
 #   -- Trouble shoot that sequence is coming out correctly
 logger.info('Start training')
 for epoch in range(args.epochs):
+    #break
     tr_loss = 0.
     for param in model.parameters():
         param.requires_grad = True
     model.train()  
-    #break
     for step, batch in enumerate(trnloader):
+        #break
         img_names = batch['img_name']
         yimg = batch['imglabels'].to(args.device, dtype=torch.float)
         ystudy = batch['studylabels'].to(args.device, dtype=torch.float)
@@ -264,11 +265,68 @@ for epoch in range(args.epochs):
         scaler.step(optimizer)
         scaler.update()
         optimizer.zero_grad()
-        if step%250==0:
-            logger.info(f'Trn step {step} of {len(trnloader)} trn lossavg {(tr_loss/(1+step)):.5f}')
+        if (step%100==0) and (step>0):
+            logger.info(f'Trn step {step} of {len(trnloader)} trn loss {(tr_loss/(1+step)):.5f}')
     #output_model_file = os.path.join(WORK_DIR, 'weights/lstm_gepoch{}_lstmepoch{}_fold{}.bin'.format(GLOBALEPOCH, epoch, fold))
     output_model_file = f'weights/sequential_lstmepoch{epoch}_fold{args.fold}.bin'
     torch.save(model.state_dict(), output_model_file)
+    
+    scheduler.step()
+    logger.info('Prep test sub...')
+    model.eval()
+    vallelabels = []
+    valimgpreds = []
+    valimglabel = []
+    valstudylabel = []
+    valstudypreds = []
+    for step, batch in enumerate(valloader):
+        #logger.info(step)
+        #if step>5:break
+        img_names = batch['img_name']
+        yimg = batch['imglabels'].to(args.device, dtype=torch.float)
+        ystudy = batch['studylabels'].to(args.device, dtype=torch.float)
+        mask = batch['mask'].to(args.device, dtype=torch.int)
+        lelabels = batch['lelabels'].to(args.device, dtype=torch.int64)
+        img_wt = torch.tensor(CFG['image_weight']).to(args.device, dtype=torch.float)
+        x = batch['emb'].to(args.device, dtype=torch.float)
+        x = torch.autograd.Variable(x, requires_grad=True)
+        yimg = torch.autograd.Variable(yimg)
+        ystudy = torch.autograd.Variable(ystudy)
+        
+        studylogits, imglogits = model(x, mask)#.to(args.device, dtype=torch.float)
+        # Repeat studies to have a prediction for every image
+        imglogits = imglogits.squeeze()
+        studylogits = studylogits.unsqueeze(2).repeat(1, 1, imglogits.size(1))
+        ystudy = ystudy.unsqueeze(2).repeat(1, 1, imglogits.size(1))
+        studylogits = studylogits.transpose(2, 1)
+        ystudy = ystudy.transpose(2, 1)
+
+        # get the mask for masked img labels
+        maskidx = mask.view(-1)==1
+        # Flatten them all along batch and seq dimension and remove masked values
+        yimg = yimg.view(-1, 1)[maskidx]
+        imglogits = imglogits.view(-1, 1)[maskidx]
+        ystudy = ystudy.reshape(-1, ystudy.size(-1))[maskidx]
+        studylogits = studylogits.reshape(-1, ystudy.size(-1))[maskidx]
+        lelabels = lelabels.view(-1, 1)[maskidx]
+        lelabels = lelabels.flatten()
+        
+        vallelabels.append(lelabels.detach().cpu() )
+        valimgpreds.append(imglogits.detach().cpu()  )
+        valimglabel.append(yimg.detach().cpu()  )
+        valstudylabel.append(ystudy.detach().cpu()  )
+        valstudypreds.append(studylogits.detach().cpu()  )
+        
+    vallelabels = torch.cat(vallelabels).to(args.device)
+    valimgpreds = torch.cat(valimgpreds).to(args.device)
+    valimglabel = torch.cat(valimglabel).to(args.device)
+    valstudylabel = torch.cat(valstudylabel).to(args.device)
+    valstudypreds = torch.cat(valstudypreds).to(args.device)
+
+    valloss = rsna_criterion(studylogits, ystudy, imglogits, yimg, lelabels, img_wt)
+    logger.info(f'Epoch {epoch} from {args.epochs} val loss {valloss}')
+    del vallelabels, valimgpreds, valimglabel, valstudylabel, valstudypreds
+        
     '''
     scheduler.step()
     logger.info('Prep test sub...')
