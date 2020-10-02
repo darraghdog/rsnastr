@@ -265,11 +265,11 @@ for epoch in range(args.epochs):
         scaler.update()
         optimizer.zero_grad()
         if step%250==0:
-            logger.info('Trn step {step} of {len(trnloader)} trn lossavg {(tr_loss/(1+step)):.5f}')
+            logger.info(f'Trn step {step} of {len(trnloader)} trn lossavg {(tr_loss/(1+step)):.5f}')
     #output_model_file = os.path.join(WORK_DIR, 'weights/lstm_gepoch{}_lstmepoch{}_fold{}.bin'.format(GLOBALEPOCH, epoch, fold))
     output_model_file = f'weights/sequential_lstmepoch{epoch}_fold{args.fold}.bin'
     torch.save(model.state_dict(), output_model_file)
-
+    '''
     scheduler.step()
     logger.info('Prep test sub...')
     model.eval()
@@ -327,6 +327,7 @@ for epoch in range(args.epochs):
     log += f'Negimg NegStudy loss {negstd_loss:.4f} acc {negstd_acc:.4f}; '
     log += f'Avg 3 loss {avg_loss:.4f} acc {avg_acc:.4f}'
     logger.info(log)
+    '''
     
     
     
