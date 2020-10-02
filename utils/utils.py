@@ -9,6 +9,25 @@ from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from collections import defaultdict, OrderedDict
 
+RSNA_CFG = {
+    'image_target_cols': [
+        'pe_present_on_image', # only image level
+    ],
+    'exam_target_cols': [
+        'negative_exam_for_pe', # exam level
+        'rv_lv_ratio_gte_1', # exam level
+        'rv_lv_ratio_lt_1', # exam level
+        'leftsided_pe', # exam level
+        'chronic_pe', # exam level
+        'rightsided_pe', # exam level
+        'acute_and_chronic_pe', # exam level
+        'central_pe', # exam level
+        'indeterminate' # exam level
+    ], 
+    'image_weight': 0.07361963,
+    'exam_weights': [0.0736196319, 0.2346625767, 0.0782208589, 0.06257668712, 0.1042944785, 0.06257668712, 0.1042944785, 0.1877300613, 0.09202453988],
+}
+
 
 RSNAWEIGHTS = OrderedDict([('negative_exam_for_pe',  0.0736196319),
                 ('indeterminate',	0.09202453988),
