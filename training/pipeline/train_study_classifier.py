@@ -279,8 +279,8 @@ for epoch in range(args.epochs):
     valstudylabel = []
     valstudypreds = []
     for step, batch in enumerate(valloader):
-        #logger.info(step)
-        #if step>5:break
+        logger.info(step)
+        if step>5:break
         img_names = batch['img_name']
         yimg = batch['imglabels'].to(args.device, dtype=torch.float)
         ystudy = batch['studylabels'].to(args.device, dtype=torch.float)
@@ -308,9 +308,13 @@ for epoch in range(args.epochs):
         ystudy = ystudy.reshape(-1, ystudy.size(-1))[maskidx]
         studylogits = studylogits.reshape(-1, ystudy.size(-1))[maskidx]
         lelabels = lelabels.view(-1, 1)[maskidx]
-        lelabels = lelabels.flatten()
+        lelabels = lelabels.flatten().detach().cpu()
         
-        vallelabels.append(lelabels.detach().cpu() )
+        # Increment the label encoder
+        if len(vallelabels)>0:
+            lelabels +=  max(vallelabels[-1]) + 1
+        
+        vallelabels.append(lelabels)
         valimgpreds.append(imglogits.detach().cpu()  )
         valimglabel.append(yimg.detach().cpu()  )
         valstudylabel.append(ystudy.detach().cpu()  )
