@@ -74,6 +74,7 @@ arg('--gpu', type=str, default='0', help='List of GPUs for parallel training, e.
 arg('--output-dir', type=str, default='weights/')
 arg('--resume', type=str, default='')
 arg('--fold', type=int, default=0)
+arg('--accum', type=int, default=1)
 arg('--batchsize', type=int, default=4)
 arg('--labeltype', type=str, default='all') # or 'single'
 arg('--augextra', type=str, default=False) # or 'single'
@@ -272,8 +273,10 @@ for epoch in range(start_epoch, max_epochs):
                 else:
                     loss = criterion(out, labels) # 0.6710
             scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
+            if (i % args.accum) == 0:
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
         else:
             out = model(imgs)
             if args.mixup_beta > 0:
@@ -283,8 +286,9 @@ for epoch in range(start_epoch, max_epochs):
                 loss = criterion(out, labels)
                 loss.backward()
             optimizer.step()
+            optimizer.zero_grad()
         losses.update(loss.item(), imgs.size(0))
-        optimizer.zero_grad()
+        #optimizer.zero_grad()
         # if args.device != 'cpu': torch.cuda.synchronize()
         pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, 
                           "loss": losses.avg, 'seen_prev': seenratio })
