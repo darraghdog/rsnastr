@@ -83,7 +83,7 @@ arg('--embrgx', type=str, default='weights/image_weights_regex')
 arg("--seed", default=777, type=int)
 args = parser.parse_args()
 
-
+logger.info(f'emb/{args.embrgx}*data.pk')
 datals = sorted(glob.glob(f'emb/{args.embrgx}*data.pk'))
 
 def takeimg(s):
