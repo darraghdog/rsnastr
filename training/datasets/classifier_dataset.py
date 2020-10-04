@@ -306,3 +306,37 @@ class valSeedSampler(Sampler):
         epsamp = list(negstdsamp + negimgsamp + posimgsamp )
         
         return epsamp
+
+class examSampler(Sampler):
+    r"""Sample N from each of the foloing for validation
+    1) Positive samples
+    2) Negative samples from positive studies
+    3) Images in negative studies
+    """
+
+    def __init__(self, data, folddf, seed = None):
+        self.data = data.copy()
+        self.folddf = folddf.copy()
+        self.seed = seed
+        self.sampler = self.sample(self.data, self.folddf)       
+
+    def __iter__(self):
+        return iter(self.sampler)
+
+    def __len__(self):
+        return len(self.sampler)
+    
+    def sample(self, data, folddf):
+        
+        folddf = folddf.reset_index(drop=True)
+        alldf = data['negative_exam_for_pe'].loc[folddf.StudyInstanceUID] \
+                .reset_index().drop_duplicates().reset_index(drop=True)
+        posdf = alldf.query('negative_exam_for_pe==1').sample(frac= 1)
+        negdf = alldf.query('negative_exam_for_pe==0').sample(frac= 1)
+        posdf['seq'] = np.arange(posdf.shape[0])/posdf.shape[0]
+        negdf['seq'] = np.arange(negdf.shape[0])/negdf.shape[0]
+        StudyInstanceUIDSeq = pd.concat([posdf, negdf], 0).sort_values('seq').StudyInstanceUID
+        sample_idx = folddf.reset_index().set_index('StudyInstanceUID').loc[StudyInstanceUIDSeq]['index'].values
+        
+        return sample_idx
+
