@@ -14,7 +14,7 @@
         "schedule": {
             "type": "steplr",
             "mode": "step",
-            "epochs": 40,
+            "epochs": 80,
             "params": {"step_size": 500, "gamma": 0.9}
         }
     },

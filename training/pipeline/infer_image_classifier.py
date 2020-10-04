@@ -107,6 +107,16 @@ valdataset = RSNAClassifierDataset(mode="valid",
                                      folds_csv=args.folds_csv,
                                      transforms=create_val_transforms(conf['size']))
 
+alldataset = RSNAClassifierDataset(mode="all",
+                                       fold=args.fold,
+                                       imgsize = conf['size'],
+                                       crops_dir=args.crops_dir,
+                                       classes = conf['classes'], 
+                                       data_path=args.data_dir,
+                                       label_smoothing=0.01,
+                                       folds_csv=args.folds_csv,
+                                       transforms=create_val_transforms(conf['size']))
+
 valsampler = valSeedSampler(valdataset.data, N = 5000, seed = args.seed)
 trnsampler = nSampler(trndataset.data, 
                           pe_weight = conf['pe_ratio'], 
@@ -118,6 +128,8 @@ logger.info(valdataset.data.loc[valsampler.sampler]['pe_present_on_image'].value
 loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': False, 'collate_fn' : collatefn}
 valloader = DataLoader(valdataset, batch_size=args.batchsize, sampler = valsampler, **loaderargs)
 trnloader = DataLoader(trndataset, batch_size=args.batchsize, sampler = trnsampler, **loaderargs)
+allloader = DataLoader(alldataset, batch_size=args.batchsize, shuffle=False, **loaderargs)
+
 logger.info('Create model and optimisers')
 model = classifiers.__dict__[conf['network']](encoder=conf['encoder'], \
                                               nclasses = len(conf['classes']),
@@ -128,7 +140,7 @@ weightfiles = glob.glob(f'{args.output_dir}/{args.weightsrgx}')
 epochs = list(map(lambda x: f'_epoch{x}', args.epochs.split('|')))
 #weightfiles = [w for w in weightfiles if any(e in w for e in epochs)]
 logger.info(f'Weights to process: {weightfiles}')
-
+'''
 if args.runswa:
     logger.info('Run SWA')
     net= swa(model, weightfiles, trnloader, args.batchsize//2, args.device)
@@ -136,7 +148,7 @@ if args.runswa:
     net = net.eval()
     bce, acc, probdf = validate(net, valloader, device = args.device, logger=logger)
     print(f"SWA Bce: {bce:.5f}")
-
+'''
 if args.infer:
     predls = []
     for f in weightfiles:
@@ -152,7 +164,6 @@ if args.infer:
         print(f"Weights {f} Bce: {bce:.5f}")
 
 if args.emb:
-    valloader = DataLoader(valdataset, batch_size=args.batchsize, shuffle=False, **loaderargs)
     for f in weightfiles:
         logger.info(f'Infer {f}')
         model = classifiers.__dict__[conf['network']](encoder=conf['encoder'], \
@@ -162,7 +173,8 @@ if args.emb:
         model.load_state_dict(checkpoint['state_dict'])
         model = model.half().to(args.device)
         model = model.eval()
-        pbar = tqdm(enumerate(valloader), total=len(valloader), desc="Weights {}".format(f), ncols=0)
+        logger.info(f'Embeddings total : {len(allloader)}')
+        pbar = tqdm(enumerate(allloader), total=len(allloader), desc="Weights {}".format(f), ncols=0)
         embls = []
         img_names = []
         with torch.no_grad():
@@ -173,7 +185,7 @@ if args.emb:
                 embls.append(emb.detach().cpu().numpy().astype(np.float32))
         outemb = np.concatenate(embls)
         logger.info('Write embeddings : shape {} {}'.format(*outemb.shape))
-        fembname =  f'{f}__hflip{int(HFLIP)}_transpose{int(TRANSPOSE)}_size{conf["size"]}.emb'
+        fembname =  f'{f}__all_size{conf["size"]}.emb'
         #fembname = 'emb/'+fembname.replace(args.output_dir, '')
         logger.info('Embedding file name : {}'.format(fembname))
         np.savez_compressed(os.path.join('emb', fembname), outemb)
@@ -181,31 +193,3 @@ if args.emb:
         with open(f'emb/{fembname}.imgnames.pk', 'wb') as handle:
             pickle.dump(img_names, handle, protocol=pickle.HIGHEST_PROTOCOL)
         gc.collect()
-    
-'''
-checkpoint = torch.load(f'{args.output_dir}/{args.weights}', 
-                        map_location=torch.device(args.device))
-
-model.load_state_dict(checkpoint['state_dict'])
-model = model.to(args.device)
-batch_size = conf['optimizer']['batch_size']
-
-logger.info('Start inference')
-imgnames = []
-predls = []
-model.eval()
-pbar = tqdm(enumerate(valloader), total=len(valloader), desc="Weights {}".format(args.weights), ncols=0)
-for i, sample in pbar:
-    imgs = sample["image"].to(args.device)
-    imgnames += sample['img_name']
-    emb = model(imgs)
-    embls.append(emb.detach().cpu().numpy().astype(np.float32))
-outemb = np.concatenate(embls)
-
-logger.info('Write embeddings : shape {} {}'.format(*outemb.shape))
-fembname =  f'hflip{int(HFLIP)}_transpose{int(TRANSPOSE)}_size{conf["size"]}_fold{args.fold}__{args.weights}'
-logger.info('Embedding file name : {}'.format(fembname))
-np.savez_compressed(os.path.join('emb', fembname), outemb)
-dumpobj(os.path.join(WORK_DIR, 'loader{logs/nohup_accum.out}'.format(HFLIP+TRANSPOSE, typ, SIZE, fold, epoch)), loader)
-gc.collect()
-'''

@@ -42,6 +42,8 @@ class RSNASequenceDataset(Dataset):
             self.folddf = folddf.query('fold != @self.fold')
             idx = self.folddf.StudyInstanceUID.isin(self.datadf.index)
             self.folddf = self.folddf[idx].reset_index(drop=True)
+        if mode == "all":
+            1 # Keep all - for embeddings
         if mode == "valid":
             self.folddf = folddf.query('fold == @self.fold')
         self.folddf = pd.merge(self.folddf, self.datadf.reset_index() \
@@ -166,7 +168,7 @@ class RSNAClassifierDataset(Dataset):
             if self.transform:       
                 augmented = self.transform(image=img)
                 img = augmented['image']   
-            if self.mode in ['train', 'valid']:
+            if self.mode in ['train', 'valid', 'all']:
                 label = self.data.loc[idx, self.classes]
                 if self.mode == 'train': 
                     label = np.clip(label, self.label_smoothing, 1 - self.label_smoothing)
@@ -184,7 +186,7 @@ class RSNAClassifierDataset(Dataset):
             return None
         
     def loaddf(self):
-        fname = 'train.csv.zip' if self.mode in ['train', 'valid'] else 'test.csv.zip'
+        fname = 'train.csv.zip' if self.mode in ['train', 'valid', 'all'] else 'test.csv.zip'
         df = pd.read_csv(f'{self.datadir}/{fname}')
         # if we are on Darwin filter
         if platform.system() == 'Darwin':
@@ -193,8 +195,10 @@ class RSNAClassifierDataset(Dataset):
         fdf = pd.read_csv(f'{self.datadir}/{self.fold_csv}')
         fls = fdf.query('fold == @self.fold').StudyInstanceUID.tolist()
         idx = df.StudyInstanceUID.isin(fls) 
-        df = (df[~idx] if self.mode == 'train' else df[idx]).reset_index(drop=True)
-        
+        if self.mode == 'train':
+            df = (df[~idx]).reset_index(drop=True)
+        if self.mode == 'valid':
+            df = (df[idx]).reset_index(drop=True)
         return df
     
     # decoding input.jpg to BGR array

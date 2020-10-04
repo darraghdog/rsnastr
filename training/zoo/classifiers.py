@@ -261,6 +261,7 @@ def validate(model, data_loader, device, logger, half = True):
     targets = []#defaultdict(list)
     studype = []
     img_names = []
+    bce_func = torch.nn.BCELoss(reduction='mean')
     with torch.no_grad():
         for i, sample in tqdm(enumerate(data_loader)):
             if half:
@@ -273,20 +274,28 @@ def validate(model, data_loader, device, logger, half = True):
             out = model(imgs)
             preds = torch.sigmoid(out).detach().cpu().numpy()
             probs.append(preds)
-    probs = np.concatenate(probs, 0)
-    targets = np.array(targets).round()
-    studype = np.array(studype).round()
-    negimg_idx = (targets < 0.5) & (studype > 0.5)
-    posimg_idx = (targets > 0.5) & (studype > 0.5)
-    negstd_idx = (targets < 0.5) & (studype < 0.5)
+    probs = np.concatenate(probs, 0).flatten()
+    targets = np.array(targets).round().flatten()
+    studype = np.array(studype).round().flatten()
+    negimg_idx = ((targets < 0.5) & (studype > 0.5)).flatten()
+    posimg_idx = ((targets > 0.5) & (studype > 0.5)).flatten()
+    negstd_idx = ((targets < 0.5) & (studype < 0.5)).flatten()
 
+    logger.info(probs[negimg_idx].shape)
+    logger.info(targets[negimg_idx].shape)
+    logger.info(np.isnan(probs[negimg_idx]).sum())
+    logger.info(np.isnan(targets[negimg_idx]).sum())
+    #negimg_loss = bce_func(probs[negimg_idx].flatten(), targets[negimg_idx].flatten())
     negimg_loss = log_loss(targets[negimg_idx], probs[negimg_idx], labels=[0, 1])
     negimg_acc = (targets[negimg_idx] == (probs[negimg_idx] > 0.5).astype(np.int).flatten()).mean()
     posimg_loss = log_loss(targets[posimg_idx], probs[posimg_idx], labels=[0, 1])
     posimg_acc = (targets[posimg_idx] == (probs[posimg_idx] > 0.5).astype(np.int).flatten()).mean()
     negstd_loss = log_loss(targets[negstd_idx], probs[negstd_idx], labels=[0, 1])
     negstd_acc = (targets[negstd_idx] == (probs[negstd_idx] > 0.5).astype(np.int).flatten()).mean()
-    
+    logger.info(f'{negimg_loss:.5f} {posimg_loss:.5f} {negstd_loss:.5f}')
+    logger.info(targets[negimg_idx].sum())
+    logger.info(probs[negimg_idx].sum())
+
     avg_acc = (negimg_acc + posimg_acc + negstd_acc) / 3
     avg_loss= (negimg_loss + posimg_loss + negstd_loss) / 3
     log = f'Negimg PosStudy loss {negimg_loss:.4f} acc {negimg_acc:.4f}; '

@@ -1,7 +1,7 @@
 {
     "network": "RSNAClassifier",
-    "encoder": "tf_efficientnet_b5_ns_04d",
-    "batches_per_epoch": 500,
+    "encoder": "dpn92",
+    "batches_per_epoch": 600,
     "size": 320,
     "classes": ["pe_present_on_image"],
     "fp16": true,
@@ -10,12 +10,12 @@
     "pe_ratio": 0.25,
     "optimizer": {
         "type": "Adam",
-        "learning_rate": 0.0005,
+        "learning_rate": 0.0001,
         "schedule": {
-            "type": "steplr",
+            "type": "poly",
             "mode": "step",
-            "epochs": 40,
-            "params": {"step_size": 500, "gamma": 0.9}
+            "epochs": 25,
+            "params": {"max_iter":  15000}
         }
     },
     "normalize": {
