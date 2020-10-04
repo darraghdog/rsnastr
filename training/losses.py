@@ -60,11 +60,4 @@ def getLoss(ltype, device):
     if ltype == "FocalLoss":
         return FocalLoss()
 
-def groupBy(samples, labels, unique_labels, labels_count, grptype = 'mean'):
-    res = torch.zeros_like(unique_labels, dtype=torch.float).scatter_add_(0, labels, samples)
-    if grptype == 'sum':
-        return res
-    if grptype == 'mean':
-        res = res / labels_count.float().unsqueeze(1)
-        return res
 

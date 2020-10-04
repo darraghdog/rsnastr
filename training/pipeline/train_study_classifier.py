@@ -146,11 +146,17 @@ plist = [
 optimizer = torch.optim.Adam(plist, lr=args.lr)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=args.lrgamma, last_epoch=-1)
 
-
-
 bce_func_exam = torch.nn.BCEWithLogitsLoss(reduction='none', 
                     weight = torch.tensor(CFG['exam_weights']).to(args.device))
 bce_func_img = torch.nn.BCEWithLogitsLoss(reduction='none')
+
+def groupBy(samples, labels, unique_labels, labels_count, grptype = 'mean'):
+    res = torch.zeros_like(unique_labels, dtype=torch.float).scatter_add_(0, labels, samples)
+    if grptype == 'sum':
+        return res
+    if grptype == 'mean':
+        res = res / labels_count.float().unsqueeze(1)
+        return res
     
 def rsna_criterion_all(y_pred_exam_, 
                    y_true_exam_, 
