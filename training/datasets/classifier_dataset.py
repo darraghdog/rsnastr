@@ -132,7 +132,8 @@ class RSNAClassifierDataset(Dataset):
                  fold = 0, 
                  labeltype='all', 
                  imgsize=512,
-                 classes=["pe_present_on_image"],
+                 imgclasses=["pe_present_on_image"],
+                 studyclasses=["pe_present_on_image"],
                  crops_dir='jpeg',
                  data_path='data',
                  label_smoothing=0.01,
@@ -141,7 +142,8 @@ class RSNAClassifierDataset(Dataset):
         self.fold = fold
         self.fold_csv = folds_csv
         self.crops_dir = crops_dir
-        self.classes = classes
+        self.imgclasses = imgclasses
+        self.studyclasses = studyclasses
         self.datadir = data_path
         self.data = self.loaddf()
         self.transform = transforms
@@ -169,7 +171,7 @@ class RSNAClassifierDataset(Dataset):
                 augmented = self.transform(image=img)
                 img = augmented['image']   
             if self.mode in ['train', 'valid', 'all']:
-                label = self.data.loc[idx, self.classes]
+                label = self.data.loc[idx, self.imgclasses + self.studyclasses]
                 if self.mode == 'train': 
                     label = np.clip(label, self.label_smoothing, 1 - self.label_smoothing)
                 label = torch.tensor(label)

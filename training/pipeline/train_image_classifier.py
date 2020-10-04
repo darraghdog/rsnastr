@@ -14,11 +14,10 @@ import warnings
 warnings.filterwarnings("ignore")
 from sklearn.metrics import log_loss
 from utils.logs import get_logger
-from utils.utils import RSNAWEIGHTS
+from utils.utils import RSNAWEIGHTS, RSNA_CFG as CFG
 from training.tools.config import load_config
 import pandas as pd
 import cv2
-
 
 import torch
 from torch.backends import cudnn
@@ -50,19 +49,6 @@ import albumentations as A
 from albumentations.pytorch import ToTensor
 logger = get_logger('Train', 'INFO') 
 
-'''
-aug = A.Compose([
-        # A.HorizontalFlip(p=1.), right/left
-        A.VerticalFlip(p=1.),
-        A.Transpose(p=0.),
-    ])
-fname = 'data/jpeg/train/4f632056046b/03dbda10118a/53ccebd24e14.jpg'
-img = cv2.imread(fname)[:,:,::-1]
-img = cv2.resize(img, (360, 360))
-from PIL import Image
-Image.fromarray(img)
-Image.fromarray(aug(image=img)['image'])
-'''
 
 logger.info('Load args')
 parser = argparse.ArgumentParser("PyTorch Xview Pipeline")
@@ -165,20 +151,22 @@ trndataset = RSNAClassifierDataset(mode="train",
                                        fold=args.fold,
                                        imgsize = conf['size'],
                                        crops_dir=args.crops_dir,
-                                       classes = conf['classes'], 
+                                       imgclasses=CFG["image_target_cols"],
+                                       studyclasses=CFG['exam_target_cols'],
                                        data_path=args.data_dir,
                                        label_smoothing=args.label_smoothing,
                                        folds_csv=args.folds_csv,
                                        transforms=create_train_transforms(conf['size']))
 logger.info('Create valdatasets')
 valdataset = RSNAClassifierDataset(mode="valid",
-                                     fold=args.fold,
-                                     crops_dir=args.crops_dir,
-                                     classes = conf['classes'], 
-                                     imgsize = conf['size'],
-                                     data_path=args.data_dir,
-                                     folds_csv=args.folds_csv,
-                                     transforms=create_val_transforms(conf['size']))
+                                    fold=args.fold,
+                                    crops_dir=args.crops_dir,
+                                    imgclasses=CFG["image_target_cols"],
+                                    studyclasses=CFG['exam_target_cols'],
+                                    imgsize = conf['size'],
+                                    data_path=args.data_dir,
+                                    folds_csv=args.folds_csv,
+                                    transforms=create_val_transforms(conf['size']))
 
 valsampler = valSeedSampler(valdataset.data, N = 5000, seed = args.seed)
 logger.info(50*'-')
@@ -187,13 +175,12 @@ loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': False, 'colla
 valloader = DataLoader(valdataset, batch_size=args.batchsize, sampler = valsampler, **loaderargs)
 
 logger.info('Create model and optimisers')
-model = classifiers.__dict__[conf['network']](encoder=conf['encoder'], \
-                                              nclasses = len(conf['classes']) )
+nclasses = len(CFG["image_target_cols"]) + len(CFG['exam_target_cols'])
+model = classifiers.__dict__[conf['network']](encoder=conf['encoder'],nclasses = nclasses)
 model = model.to(args.device)
-reduction = "mean"
 
-losstype = list(conf['losses'].keys())[0]
-criterion = getLoss("BCEWithLogitsLoss", args.device)
+bce_wts = torch.tensor([1.] + CFG['exam_weights']).to(args.device)
+criterion = torch.nn.BCEWithLogitsLoss(reduction='mean', weight = bce_wts)
 
 optimizer, scheduler = create_optimizer(conf['optimizer'], model)
 bce_best = 100
@@ -215,6 +202,9 @@ max_epochs = conf['optimizer']['schedule']['epochs']
 
 logger.info('Start training')
 epoch_img_names = defaultdict(list)
+
+
+seenratio=0  # Ratio of seen in images in previous epochs
 
 '''
 alldf = pd.read_csv('data/train.csv.zip')
@@ -255,23 +245,10 @@ for epoch in range(start_epoch, max_epochs):
         imgs = sample["image"].to(args.device)
         # logger.info(f'Mean {imgs.mean()} std {imgs.std()} ')
         labels = sample["labels"].to(args.device).float()
-        r = np.random.rand(1)
-        if args.mixup_beta > 0:
-            # generate mixed sample
-            lam = np.random.beta(args.mixup_beta, args.mixup_beta)
-            rand_index = torch.randperm(imgs.size()[0]).to(args.device)
-            labels_a = labels
-            labels_b = labels[rand_index]
-            imgs = lam * imgs + (1 - lam) * imgs[rand_index]
-            
         if conf['fp16'] and args.device != 'cpu':
             with autocast():
                 out = model(imgs)
-                if args.mixup_beta > 0:
-                    loss = criterion(out, labels) * lam + \
-                            criterion(out, labels) * (1. - lam)
-                else:
-                    loss = criterion(out, labels) # 0.6710
+                loss = criterion(out, labels) # 0.6710
             scaler.scale(loss).backward()
             if (i % args.accum) == 0:
                 scaler.step(optimizer)
@@ -279,17 +256,11 @@ for epoch in range(start_epoch, max_epochs):
                 optimizer.zero_grad()
         else:
             out = model(imgs)
-            if args.mixup_beta > 0:
-                loss = criterion(out, labels) * lam + \
-                    criterion(out, labels) * (1. - lam)
-            else:
-                loss = criterion(out, labels)
-                loss.backward()
+            loss = criterion(out, labels)
+            loss.backward()
             optimizer.step()
             optimizer.zero_grad()
         losses.update(loss.item(), imgs.size(0))
-        #optimizer.zero_grad()
-        # if args.device != 'cpu': torch.cuda.synchronize()
         pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, 
                           "loss": losses.avg, 'seen_prev': seenratio })
         
@@ -308,10 +279,63 @@ for epoch in range(start_epoch, max_epochs):
         summary_writer.add_scalar('group{}/lr'.format(idx), float(lr), global_step=current_epoch)
         summary_writer.add_scalar('train/loss', float(losses.avg), global_step=current_epoch)
     model = model.eval()
-    bce, acc, probdf = validate(model, valloader, device = args.device, logger = logger, half = False)
+    # bce, acc, probdf = validate(model, valloader, device = args.device, logger = logger, half = False)
+    '''
+    Validate
+    '''
+    
+    val = defaultdict(list)
+    with torch.no_grad():
+        for i, sample in tqdm(enumerate(valloader)):
+            imgs = sample["image"].to(args.device)
+            val['img_names'] += sample["img_name"]
+            val['targets'] += sample["labels"].tolist()
+            val['studype'] += sample['studype'].tolist()
+            out = model(imgs)
+            preds = torch.sigmoid(out).detach().cpu().numpy()
+            val['probs'].append(preds)
+    val['probs'] = np.concatenate(val['probs'], 0)
+    val['targets'] = np.array(val['targets']).round()*1.
+    val['studype'] = np.array(val['studype']).round()
+    val['negimg_idx'] = ((val['targets'][:,0] < 0.5) & (val['studype'] > 0.5)).flatten()
+    val['posimg_idx'] = ((val['targets'][:,0] > 0.5) & (val['studype'] > 0.5)).flatten()
+    val['negstd_idx'] = ((val['targets'][:,0] < 0.5) & (val['studype'] < 0.5)).flatten()
+    ycols = CFG['image_target_cols']+CFG['exam_target_cols']
+    ywts = [CFG['image_weight']] + CFG['exam_weights']
+    idxs = ['negimg_idx', 'posimg_idx', 'negstd_idx']
+    bce_val = torch.nn.BCELoss(reduction='mean')
+    valcriterion = torch.nn.BCEWithLogitsLoss(reduction='mean', 
+                                              weight = bce_wts.to('cpu'))
+    outtmp = torch.tensor(val['probs'])
+    ytmp = torch.tensor(val['targets']*1.)
+    bce = valcriterion(outtmp, ytmp)
+    for idx in idxs:
+        outtmp = torch.tensor(val['probs'][val[idx], :])
+        ytmp = torch.tensor(val['targets'][val[idx], :]).float()
+        lossvaltmp = bce_val(outtmp, ytmp)
+        logger.info(f'idx {idx} loss {lossvaltmp:.3f}')
+    print(50*'--')
+    for i, (col, wt) in enumerate(zip(ycols, ywts)):
+        idx = 'posimg_idx'
+        outtmp = torch.tensor(val['probs'][val[idx], i])
+        ytmp = torch.tensor(val['targets'][val[idx], i]).float()
+        lossvaltmp = bce_val(outtmp, ytmp)
+        logger.info(f'Type {col} '.ljust(27)+f'wt {wt:.3f} idx {idx} loss {lossvaltmp:.3f}')
+    print(50*'--')
+    for idx in idxs:
+        col = CFG['image_target_cols'][0]
+        wt = CFG['image_weight']
+        outtmp = torch.tensor(val['probs'][val[idx], :])
+        ytmp = torch.tensor(val['targets'][val[idx], :]).float()
+        lossvaltmp = bce_val(outtmp, ytmp)
+        logger.info(f'Type {col} '.ljust(27)+f'idx {idx} loss {lossvaltmp:.3f}')
+    print(50*'--')   
+    
+    '''
+    Save the model
+    '''
 
     if args.local_rank == 0:
-        summary_writer.add_scalar('val/bce', float(bce), global_step=current_epoch)
         if bce < bce_best:
             print("Epoch {} improved from {:.5f} to {:.5f}".format(current_epoch, bce_best, bce))
             if args.output_dir is not None:
@@ -319,9 +343,8 @@ for epoch in range(start_epoch, max_epochs):
                     'epoch': current_epoch + 1,
                     'state_dict': model.state_dict(),
                     'bce_best': bce,
-                }, args.output_dir + snapshot_name + f"_fold{args.fold}_best_dice")
+                }, args.output_dir + snapshot_name + f"_fold{args.fold}_best_dice_all")
             bce_best = bce
-            probdf.to_csv(args.output_dir + snapshot_name + f"_fold{args.fold}_best_probs.csv", index = False)
         print("Epoch: {} bce: {:.5f}, bce_best: {:.5f}".format(current_epoch, bce, bce_best))
     torch.save({
         'epoch': current_epoch + 1,
