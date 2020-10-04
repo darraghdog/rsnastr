@@ -36,7 +36,7 @@ from training.datasets.classifier_dataset import RSNASequenceDataset, collateseq
 from training.zoo.sequence import SpatialDropout, LSTMNet
 from training.tools.utils import create_optimizer, AverageMeter, collectPreds, collectLoss
 from training.tools.utils import splitbatch, unmasklabels, unmasklogits
-from training.losses import getLoss, rsna_criterion_all
+from training.losses import getLoss
 from training import losses
 from torch.optim.swa_utils import AveragedModel, SWALR
 from tensorboardX import SummaryWriter
