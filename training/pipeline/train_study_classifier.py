@@ -146,12 +146,44 @@ plist = [
 optimizer = torch.optim.Adam(plist, lr=args.lr)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=args.lrgamma, last_epoch=-1)
 
-ypredls = []
-ypredtstls = []
-scaler = torch.cuda.amp.GradScaler()
+
+
 bce_func_exam = torch.nn.BCEWithLogitsLoss(reduction='none', 
                     weight = torch.tensor(CFG['exam_weights']).to(args.device))
 bce_func_img = torch.nn.BCEWithLogitsLoss(reduction='none')
+    
+def rsna_criterion_all(y_pred_exam_, 
+                   y_true_exam_, 
+                   y_pred_img_, 
+                   y_true_img_,
+                   le_study, 
+                   img_wt):
+    # Groupby 
+    labels = le_study.view(le_study.size(0), 1).expand(-1, 1)
+    unique_labels, labels_count = labels.unique(dim=0, return_counts=True)
+    
+    #logger.info('Exam loss')
+    exam_loss = bce_func_exam(y_pred_exam_, y_true_exam_)
+    exam_loss = exam_loss.sum(1).unsqueeze(1)
+    exam_loss = groupBy(exam_loss, labels, unique_labels, labels_count, grptype = 'mean').sum()
+    exam_wts = torch.tensor(le_study.unique().shape[0]).float()
+    
+    #logger.info('Image loss')
+    image_loss = bce_func_img(y_pred_img_, y_true_img_)
+    image_loss = groupBy(image_loss, labels, unique_labels, labels_count, grptype = 'sum')
+    qi_all = groupBy(y_true_img_, labels, unique_labels, labels_count, grptype = 'mean')
+    image_loss = (img_wt * qi_all * image_loss).sum()
+    img_wts = (img_wt * y_true_img_).sum()
+    
+    #logger.info('Final loss')
+    img_loss_out =  image_loss / img_wts
+    exam_loss_out = exam_loss / exam_wts
+    final_loss = (image_loss + exam_loss)/(img_wts + exam_wts)
+    return final_loss , img_loss_out, exam_loss_out
+
+ypredls = []
+ypredtstls = []
+scaler = torch.cuda.amp.GradScaler()
 
 logger.info('Start training')
 for epoch in range(args.epochs):
