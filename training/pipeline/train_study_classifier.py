@@ -52,8 +52,10 @@ import albumentations as A
 from albumentations.pytorch import ToTensor
 logger = get_logger('LSTM', 'INFO') 
 
+'''
 import sys; sys.argv=['']; del sys
 logger.info('Load args')
+'''
 parser = argparse.ArgumentParser()
 arg = parser.add_argument
 arg('--config', metavar='CONFIG_FILE', help='path to configuration file')
