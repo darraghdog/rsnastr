@@ -124,7 +124,7 @@ valdataset = RSNASequenceDataset(datadf,
                                    folds_csv=args.folds_csv)
 
 logger.info('Create loaders...')
-valloader = DataLoader(valdataset, batch_size=args.batchsize*8, shuffle=False, num_workers=4, collate_fn=collateseqfn)
+valloader = DataLoader(valdataset, batch_size=args.batchsize, shuffle=False, num_workers=4, collate_fn=collateseqfn)
 embed_size = embmat.shape[1]
 # del embmat
 gc.collect()
