@@ -85,13 +85,13 @@ arg('--embrgx', type=str, default='weights/image_weights_regex')
 arg("--seed", default=777, type=int)
 args = parser.parse_args()
 
-logger.info(f'emb/{args.embrgx}*data.pk')
-datals = sorted(glob.glob(f'emb/{args.embrgx}*data.pk'))
+# logger.info(f'emb/{args.embrgx}*data.pk')
+# datals = sorted(glob.glob(f'emb/{args.embrgx}*data.pk'))
 
 def takeimg(s):
     return s.split('/')[-1].replace('.jpg', '')
-
-f=datals[0]
+#emb/weights/classifier_RSNAClassifier_tf_efficientnet_b5_ns_04d_0__fold0_best_dice__all_size320.emb.data.pk
+f=args.embrgx
 logger.info(f'File load : {f}')
 dfname, embname, imgnm = f, f.replace('.data.pk', '.npz'), f.replace('.data.pk', '.imgnames.pk')
 datadf = pd.read_pickle(dfname)
