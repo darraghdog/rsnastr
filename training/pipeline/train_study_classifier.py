@@ -79,6 +79,7 @@ arg('--nbags',   type=int, default=12)
 arg('--label-smoothing', type=float, default=0.00)
 arg('--logdir', type=str, default='logs/b2_1820')
 arg("--local_rank", default=0, type=int)
+ard('--embrgx', type=str, default='weights/image_weights_regex')
 arg("--seed", default=777, type=int)
 args = parser.parse_args()
 
