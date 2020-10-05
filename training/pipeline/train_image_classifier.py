@@ -103,9 +103,9 @@ if not args.augextra:
     def create_train_transforms(size=300, distort = False):
         return A.Compose([
             #A.HorizontalFlip(p=0.5),   # right/left
-            A.VerticalFlip(p=0.5), 
-            A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, value = 0,
-                                 rotate_limit=20, p=0.5, border_mode = cv2.BORDER_CONSTANT),
+            #A.VerticalFlip(p=0.5), 
+            A.ShiftScaleRotate(shift_limit=0.02, scale_limit=0.02, value = 0,
+                                 rotate_limit=10, p=0.5, border_mode = cv2.BORDER_CONSTANT),
             # A.Cutout(num_holes=40, max_h_size=size//7, max_w_size=size//7, fill_value=128, p=0.5), 
             #A.Transpose(p=0.5), # swing in -90 degrees
             A.Resize(size, size, p=1), 

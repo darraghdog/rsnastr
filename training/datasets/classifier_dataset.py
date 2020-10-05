@@ -172,11 +172,12 @@ class RSNAClassifierDataset(Dataset):
                 img = augmented['image']   
             if self.mode in ['train', 'valid', 'all']:
                 label = self.data.loc[idx, self.imgclasses + self.studyclasses]
+
                 if self.mode == 'train': 
                     label = np.clip(label, self.label_smoothing, 1 - self.label_smoothing)
                 label = torch.tensor(label)
                 if self.labeltype=='all':
-                    if label[0] == 0:
+                    if label[:2].sum() < 0.1:
                         label[:] = 0 # If image level pe has nothing, then remove the others. 
                 return {'img_name': img_name, 'studype': study_pe, 
                         'image': img, 'labels': label}    
