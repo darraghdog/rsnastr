@@ -84,6 +84,7 @@ if False:
     args.config = 'configs/b2.json'
     args.config = 'configs/b2_binary.json'
     args.config = 'configs/rnxt101_binary.json'
+    args.config = 'configs/effnetb5_lr5e4_binarytmp.json'
 conf = load_config(args.config)
 
 '''
@@ -151,8 +152,8 @@ trndataset = RSNAClassifierDataset(mode="train",
                                        fold=args.fold,
                                        imgsize = conf['size'],
                                        crops_dir=args.crops_dir,
-                                       imgclasses=CFG["image_target_cols"],
-                                       studyclasses=CFG['exam_target_cols'],
+                                       imgclasses=conf["image_target_cols"],
+                                       studyclasses=conf['exam_target_cols'],
                                        data_path=args.data_dir,
                                        label_smoothing=args.label_smoothing,
                                        folds_csv=args.folds_csv,
@@ -161,8 +162,8 @@ logger.info('Create valdatasets')
 valdataset = RSNAClassifierDataset(mode="valid",
                                     fold=args.fold,
                                     crops_dir=args.crops_dir,
-                                    imgclasses=CFG["image_target_cols"],
-                                    studyclasses=CFG['exam_target_cols'],
+                                    imgclasses=conf["image_target_cols"],
+                                    studyclasses=conf['exam_target_cols'],
                                     imgsize = conf['size'],
                                     data_path=args.data_dir,
                                     folds_csv=args.folds_csv,
@@ -175,13 +176,13 @@ loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': False, 'colla
 valloader = DataLoader(valdataset, batch_size=args.batchsize, sampler = valsampler, **loaderargs)
 
 logger.info('Create model and optimisers')
-nclasses = len(CFG["image_target_cols"]) + len(CFG['exam_target_cols'])
+nclasses = len(conf["image_target_cols"]) + len(conf['exam_target_cols'])
 model = classifiers.__dict__[conf['network']](encoder=conf['encoder'],nclasses = nclasses)
 model = model.to(args.device)
 
 image_weight = conf['image_weight'] if 'image_weight' in conf else 1.
 logger.info(f'Image BCE weight :{image_weight}')
-bce_wts = torch.tensor([image_weight] + CFG['exam_weights']).to(args.device)
+bce_wts = torch.tensor([image_weight] + conf['exam_weights']).to(args.device)
 criterion = torch.nn.BCEWithLogitsLoss(reduction='mean', weight = bce_wts)
 
 optimizer, scheduler = create_optimizer(conf['optimizer'], model)
@@ -302,8 +303,8 @@ for epoch in range(start_epoch, max_epochs):
     val['negimg_idx'] = ((val['targets'][:,0] < 0.5) & (val['studype'] > 0.5)).flatten()
     val['posimg_idx'] = ((val['targets'][:,0] > 0.5) & (val['studype'] > 0.5)).flatten()
     val['negstd_idx'] = ((val['targets'][:,0] < 0.5) & (val['studype'] < 0.5)).flatten()
-    ycols = CFG['image_target_cols']+CFG['exam_target_cols']
-    ywts = [CFG['image_weight']] + CFG['exam_weights']
+    ycols = conf['image_target_cols']+conf['exam_target_cols']
+    ywts = [conf['image_weight']] + conf['exam_weights']
     idxs = ['negimg_idx', 'posimg_idx', 'negstd_idx']
     bce_val = torch.nn.BCELoss(reduction='mean')
     valcriterion = torch.nn.BCEWithLogitsLoss(reduction='mean', 
@@ -325,8 +326,8 @@ for epoch in range(start_epoch, max_epochs):
         logger.info(f'Type {col} '.ljust(27)+f'wt {wt:.3f} idx {idx} loss {lossvaltmp:.3f}')
     print(50*'--')
     for idx in idxs:
-        col = CFG['image_target_cols'][0]
-        wt = CFG['image_weight']
+        col = conf['image_target_cols'][0]
+        wt = conf['image_weight']
         outtmp = torch.tensor(val['probs'][val[idx], :])
         ytmp = torch.tensor(val['targets'][val[idx], :]).float()
         lossvaltmp = bce_val(outtmp, ytmp)
