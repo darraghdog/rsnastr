@@ -1,20 +1,21 @@
 {
-    "network": "RSNAClassifier_binary",
+    "network": "RSNAClassifier",
     "encoder": "tf_efficientnet_b5_ns_04d",
-    "batches_per_epoch": 500,
+    "batches_per_epoch": 700,
     "size": 320,
     "classes": ["pe_present_on_image"],
     "fp16": true,
     "studynmin": 2,
-    "studynmax": 8,
-    "pe_ratio": 0.25,
+    "studynmax": 6,
+    "pe_ratio": 0.5,
+    "image_weight": 0.5,
     "optimizer": {
         "type": "Adam",
         "learning_rate": 0.0005,
         "schedule": {
             "type": "steplr",
             "mode": "step",
-            "epochs": 40,
+            "epochs": 10,
             "params": {"step_size": 500, "gamma": 0.9}
         }
     },

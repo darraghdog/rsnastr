@@ -179,7 +179,9 @@ nclasses = len(CFG["image_target_cols"]) + len(CFG['exam_target_cols'])
 model = classifiers.__dict__[conf['network']](encoder=conf['encoder'],nclasses = nclasses)
 model = model.to(args.device)
 
-bce_wts = torch.tensor([1.] + CFG['exam_weights']).to(args.device)
+image_weight = conf['image_weight'] if 'image_weight' in conf else 1.
+logger.info(f'Image BCE weight :{image_weight}')
+bce_wts = torch.tensor([image_weight] + CFG['exam_weights']).to(args.device)
 criterion = torch.nn.BCEWithLogitsLoss(reduction='mean', weight = bce_wts)
 
 optimizer, scheduler = create_optimizer(conf['optimizer'], model)
@@ -350,5 +352,5 @@ for epoch in range(start_epoch, max_epochs):
         'epoch': current_epoch + 1,
         'state_dict': model.state_dict(),
         'bce_best': bce,
-        }, args.output_dir + snapshot_name + f"_fold{args.fold}_epoch{current_epoch}")
+        }, args.output_dir + snapshot_name + f"_nclasses{nclasses}_fold{args.fold}_epoch{current_epoch}")
     current_epoch += 1
