@@ -25,4 +25,9 @@
     "losses": {
         "FocalBCEWithLogitsLoss": [1.0]
     }
+    "image_target_cols": ["pe_present_on_image"],
+    "exam_target_cols": [],
+    "image_weight": 1.0,
+    "exam_weights": []
+
 }
