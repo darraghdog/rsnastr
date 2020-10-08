@@ -7,7 +7,7 @@ import itertools
 from collections import defaultdict, OrderedDict
 import platform
 PATH = '/Users/dhanley/Documents/rsnastr' \
-        if platform.system() == 'Darwin' else '/data/rsnastr'
+        if platform.system() == 'Darwin' else '/mount'
 os.chdir(PATH)
 sys.path.append(PATH)
 import warnings
@@ -100,33 +100,32 @@ Image.fromarray(img)
 
 
 # Try using imagenet means
-if not args.augextra:
-    def create_train_transforms_binary(size=300, distort = False):
-        return A.Compose([
-            A.HorizontalFlip(p=0.5),   # right/left
-            A.VerticalFlip(p=0.5),
-            A.ShiftScaleRotate(shift_limit=0.02, scale_limit=0.02, value = 0,
-                                 rotate_limit=20, p=0.5, border_mode = cv2.BORDER_CONSTANT),
-            # A.Cutout(num_holes=40, max_h_size=size//7, max_w_size=size//7, fill_value=128, p=0.5),
-            #A.Transpose(p=0.5), # swing in -90 degrees
-            A.Resize(size, size, p=1),
-            A.Normalize(mean=conf['normalize']['mean'],
-                        std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
-            ToTensor()
+def create_train_transforms_binary(size=300, distort = False):
+    return A.Compose([
+        A.HorizontalFlip(p=0.5),   # right/left
+        A.VerticalFlip(p=0.5),
+        A.ShiftScaleRotate(shift_limit=0.02, scale_limit=0.02, value = 0,
+                             rotate_limit=20, p=0.5, border_mode = cv2.BORDER_CONSTANT),
+        # A.Cutout(num_holes=40, max_h_size=size//7, max_w_size=size//7, fill_value=128, p=0.5),
+        #A.Transpose(p=0.5), # swing in -90 degrees
+        A.Resize(size, size, p=1),
+        A.Normalize(mean=conf['normalize']['mean'],
+                    std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
+        ToTensor()
         ])
 
-    def create_train_transforms_multi(size=300, distort = False):
-        return A.Compose([
-            #A.HorizontalFlip(p=0.5),   # right/left
-            #A.VerticalFlip(p=0.5), 
-            A.ShiftScaleRotate(shift_limit=0.02, scale_limit=0.02, value = 0,
+def create_train_transforms_multi(size=300, distort = False):
+    return A.Compose([
+        #A.HorizontalFlip(p=0.5),   # right/left
+        #A.VerticalFlip(p=0.5), 
+        A.ShiftScaleRotate(shift_limit=0.02, scale_limit=0.02, value = 0,
                                  rotate_limit=10, p=0.5, border_mode = cv2.BORDER_CONSTANT),
-            # A.Cutout(num_holes=40, max_h_size=size//7, max_w_size=size//7, fill_value=128, p=0.5), 
-            #A.Transpose(p=0.5), # swing in -90 degrees
-            A.Resize(size, size, p=1), 
-            A.Normalize(mean=conf['normalize']['mean'], 
-                        std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
-            ToTensor()
+        # A.Cutout(num_holes=40, max_h_size=size//7, max_w_size=size//7, fill_value=128, p=0.5), 
+        #A.Transpose(p=0.5), # swing in -90 degrees
+        A.Resize(size, size, p=1), 
+        A.Normalize(mean=conf['normalize']['mean'], 
+                    std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
+        ToTensor()
         ])
 
 def create_val_transforms(size=300, HFLIPVAL = 1.0, TRANSPOSEVAL = 1.0):
