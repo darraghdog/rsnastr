@@ -101,35 +101,26 @@ Image.fromarray(img)
 
 # Try using imagenet means
 if not args.augextra:
-    def create_train_transforms(size=300, distort = False):
+    def create_train_transforms_binary(size=300, distort = False):
+        return A.Compose([
+            A.HorizontalFlip(p=0.5),   # right/left
+            A.VerticalFlip(p=0.5),
+            A.ShiftScaleRotate(shift_limit=0.02, scale_limit=0.02, value = 0,
+                                 rotate_limit=20, p=0.5, border_mode = cv2.BORDER_CONSTANT),
+            # A.Cutout(num_holes=40, max_h_size=size//7, max_w_size=size//7, fill_value=128, p=0.5),
+            #A.Transpose(p=0.5), # swing in -90 degrees
+            A.Resize(size, size, p=1),
+            A.Normalize(mean=conf['normalize']['mean'],
+                        std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
+            ToTensor()
+        ])
+
+    def create_train_transforms_multi(size=300, distort = False):
         return A.Compose([
             #A.HorizontalFlip(p=0.5),   # right/left
             #A.VerticalFlip(p=0.5), 
             A.ShiftScaleRotate(shift_limit=0.02, scale_limit=0.02, value = 0,
                                  rotate_limit=10, p=0.5, border_mode = cv2.BORDER_CONSTANT),
-            # A.Cutout(num_holes=40, max_h_size=size//7, max_w_size=size//7, fill_value=128, p=0.5), 
-            #A.Transpose(p=0.5), # swing in -90 degrees
-            A.Resize(size, size, p=1), 
-            A.Normalize(mean=conf['normalize']['mean'], 
-                        std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
-            ToTensor()
-        ])
-else:
-    def create_train_transforms(size=300, distort = False):
-        return A.Compose([
-            #A.HorizontalFlip(p=0.5),   # right/left
-            A.VerticalFlip(p=0.5), 
-            A.OneOf([
-                A.RandomCrop(int(size*0.8), int(size*0.8), p = 0.5), 
-                A.RandomCrop(int(size*0.9), int(size*0.9), p = 0.5), 
-            ], p=1.0),
-            A.OneOf([
-                A.ElasticTransform(p=0.5, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03),
-                A.GridDistortion(p=0.5),
-                A.OpticalDistortion(p=1, distort_limit=2, shift_limit=0.5),
-            ], p=0.5),
-            A.ShiftScaleRotate(shift_limit=0.05, scale_limit=0.05, value = 0,
-                                 rotate_limit=20, p=0.5, border_mode = cv2.BORDER_CONSTANT),
             # A.Cutout(num_holes=40, max_h_size=size//7, max_w_size=size//7, fill_value=128, p=0.5), 
             #A.Transpose(p=0.5), # swing in -90 degrees
             A.Resize(size, size, p=1), 
@@ -148,16 +139,18 @@ def create_val_transforms(size=300, HFLIPVAL = 1.0, TRANSPOSEVAL = 1.0):
     ])
 
 logger.info('Create traindatasets')
-trndataset = RSNAClassifierDataset(mode="train",
-                                       fold=args.fold,
-                                       imgsize = conf['size'],
-                                       crops_dir=args.crops_dir,
-                                       imgclasses=conf["image_target_cols"],
-                                       studyclasses=conf['exam_target_cols'],
-                                       data_path=args.data_dir,
-                                       label_smoothing=args.label_smoothing,
-                                       folds_csv=args.folds_csv,
-                                       transforms=create_train_transforms(conf['size']))
+trndataset = RSNAClassifierDataset(mode="train",\
+                                       fold=args.fold,\
+                                       imgsize = conf['size'],\
+                                       crops_dir=args.crops_dir,\
+                                       imgclasses=conf["image_target_cols"],\
+                                       studyclasses=conf['exam_target_cols'],\
+                                       data_path=args.data_dir,\
+                                       label_smoothing=args.label_smoothing,\
+                                       folds_csv=args.folds_csv,\
+                                       transforms=create_train_transforms_multi(conf['size'])\
+                                           if len(conf['exam_target_cols'])>0 else \
+                                           create_train_transforms_binary(conf['size']))
 logger.info('Create valdatasets')
 valdataset = RSNAClassifierDataset(mode="valid",
                                     fold=args.fold,
@@ -177,6 +170,7 @@ valloader = DataLoader(valdataset, batch_size=args.batchsize, sampler = valsampl
 
 logger.info('Create model and optimisers')
 nclasses = len(conf["image_target_cols"]) + len(conf['exam_target_cols'])
+logger.info(f'Nclasses : {nclasses}')
 model = classifiers.__dict__[conf['network']](encoder=conf['encoder'],nclasses = nclasses)
 model = model.to(args.device)
 

@@ -1,8 +1,16 @@
+for FOLD in 3 # 4
+do 
+    python training/pipeline/train_image_classifier.py --device 'cuda' --fold $FOLD --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.0 --config 'configs/effnetb5_lr5e4_binary200.json'
+    #python training/pipeline/train_image_classifier.py --device 'cuda' --fold $FOLD --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.0 --config 'configs/effnetb5_lr5e4_multi.json'
+done
+
+: '
 for FOLD in 0 1 2 3 4
 do 
     python training/pipeline/train_image_classifier.py --device 'cuda' --fold $FOLD --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.0 --config 'configs/effnetb5_lr5e4_binary.json'
+    #python training/pipeline/train_image_classifier.py --device 'cuda' --fold $FOLD --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.0 --config 'configs/effnetb5_lr5e4_multi.json'
 done
-
+'
 : '
 python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --accum 4 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/effnetb5_lr1e4_binary.json'
 python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --accum 2 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/effnetb5_lr1e4_binary.json'
