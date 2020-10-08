@@ -236,12 +236,18 @@ class nSampler(Sampler):
         data_source (Dataset): dataset to sample from
     """
 
-    def __init__(self, data, pe_weight = None, nmin = 2, nmax = 5, seed = None):
+    def __init__(self, data, 
+                 pe_weight = None, 
+                 nmin = 2, 
+                 nmax = 5, 
+                 examlevel = False,
+                 seed = None):
         self.data = data
         self.seed = seed
         self.nmin = nmin
         self.nmax = nmax
         self.pe_weight = pe_weight
+        self.examlevel = examlevel
 
     def __iter__(self):
         self.sampler = self.sample(self.data)
@@ -251,6 +257,14 @@ class nSampler(Sampler):
         return len(self.sampler)
     
     def sample(self, data):
+        # Only examlevel
+        if examlevel:
+            # Only take negative exams and positinve images
+            # Leave off the fuzzy examples
+            self.data = \
+                pd.concat([self.data.query('negative_exam_for_pe == 1'), \
+                       self.data.query('pe_present_on_image == 1')]) \
+                        .reset_index(drop=True)
         # Sample from all studies
         allsamp = self.data.sample(frac= 1, 
                                 random_state=self.seed) \
@@ -277,10 +291,15 @@ class valSeedSampler(Sampler):
     3) Images in negative studies
     """
 
-    def __init__(self, data, N = 5000, seed = None):
+    def __init__(self, 
+                 data, 
+                 N = 5000, 
+                 examlevel = False, 
+                 seed = None):
         self.data = data
         self.seed = seed
         self.N = N
+        self.examlevel = examlevel
         self.sampler = self.sample(self.data)       
 
     def __iter__(self):
@@ -306,10 +325,14 @@ class valSeedSampler(Sampler):
             .sample(frac= 1, random_state=self.seed) \
             .index.tolist()[:self.N]
         # Sum them all to one
-        epsamp = list(negstdsamp + negimgsamp + posimgsamp )
+        if self.examlevel:
+            epsamp = list(negstdsamp + posimgsamp )
+        else:
+            epsamp = list(negstdsamp + negimgsamp + posimgsamp )
         
         return epsamp
 
+'''
 class examSampler(Sampler):
     r"""Sample N from each of the foloing for validation
     1) Positive samples
@@ -342,4 +365,5 @@ class examSampler(Sampler):
         sample_idx = folddf.reset_index().set_index('StudyInstanceUID').loc[StudyInstanceUIDSeq]['index'].values
         
         return sample_idx
+'''
 

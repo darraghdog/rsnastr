@@ -84,7 +84,7 @@ if False:
     args.config = 'configs/b2.json'
     args.config = 'configs/b2_binary.json'
     args.config = 'configs/rnxt101_binary.json'
-    args.config = 'configs/effnetb5_lr5e4_binarytmp.json'
+    args.config = 'configs/effnetb5_lr5e4_multi.json'
 conf = load_config(args.config)
 
 '''
@@ -161,7 +161,12 @@ valdataset = RSNAClassifierDataset(mode="valid",
                                     folds_csv=args.folds_csv,
                                     transforms=create_val_transforms(conf['size']))
 
-valsampler = valSeedSampler(valdataset.data, N = 5000, seed = args.seed)
+examlevel =  len(conf['exam_weights']) > 0
+logger.info(f"Use {'EXAM' if examlevel else 'IMAGE'} level valid sampler")
+valsampler = valSeedSampler(valdataset.data, 
+                            examlevel = examlevel,
+                            N = 5000, 
+                            seed = args.seed)
 logger.info(50*'-')
 logger.info(valdataset.data.loc[valsampler.sampler]['pe_present_on_image'].value_counts())
 loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': False, 'collate_fn' : collatefn}
@@ -176,6 +181,8 @@ model = model.to(args.device)
 image_weight = conf['image_weight'] if 'image_weight' in conf else 1.
 logger.info(f'Image BCE weight :{image_weight}')
 bce_wts = torch.tensor([image_weight] + conf['exam_weights']).to(args.device)
+logger.info(f"All BCE weights :{[image_weight] + conf['exam_weights']}")
+
 criterion = torch.nn.BCEWithLogitsLoss(reduction='mean', weight = bce_wts)
 
 optimizer, scheduler = create_optimizer(conf['optimizer'], model)
@@ -221,11 +228,14 @@ for epoch in range(start_epoch, max_epochs):
     ep_samps={'tot':0,'pos':0}
     losses = AverageMeter()
     max_iters = conf["batches_per_epoch"]
+    logger.info(f"Use {'EXAM' if examlevel else 'IMAGE'} level train sampler")
     trnsampler = nSampler(trndataset.data, 
+                          examlevel = examlevel,
                           pe_weight = conf['pe_ratio'], 
                           nmin = conf['studynmin'], 
                           nmax = conf['studynmax'], 
                           seed = None)
+        
     if current_epoch == 0: 
         trncts = trndataset.data.iloc[trnsampler.sample(trndataset.data)].pe_present_on_image.value_counts()
         valcts = valdataset.data.iloc[valsampler.sample(valdataset.data)].pe_present_on_image.value_counts()
