@@ -1,7 +1,7 @@
 from typing import Any
 
-from pytorch_toolbelt import losses
-from pytorch_toolbelt.losses import BinaryFocalLoss
+#from pytorch_toolbelt import losses
+#from pytorch_toolbelt.losses import BinaryFocalLoss
 from torch import nn
 import torch
 import torch.nn.functional as F
@@ -26,12 +26,12 @@ class WeightedLosses(nn.Module):
     
 class BinaryCrossentropy(BCEWithLogitsLoss):
     pass
-
+'''
 class FocalLoss(BinaryFocalLoss):
     def __init__(self, alpha=None, gamma=3, ignore_index=None, reduction="mean", normalized=False,
                  reduced_threshold=None):
         super().__init__(alpha, gamma, ignore_index, reduction, normalized, reduced_threshold)
-
+'''
 class FocalBCEWithLogitsLoss(nn.Module):
     def __init__(self, device, alpha=1, gamma=2, reduce=True):
         super(FocalBCEWithLogitsLoss, self).__init__()
@@ -57,7 +57,7 @@ def getLoss(ltype, device):
         return BCEWithLogitsLoss().to(device)
     if ltype == "FocalBCEWithLogitsLoss":
         return FocalBCEWithLogitsLoss(device).to(device)
-    if ltype == "FocalLoss":
-        return FocalLoss()
+    #if ltype == "FocalLoss":
+    #    return FocalLoss()
 
 

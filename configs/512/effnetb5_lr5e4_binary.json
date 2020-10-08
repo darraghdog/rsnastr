@@ -1,0 +1,33 @@
+{
+    "network": "RSNAClassifier",
+    "encoder": "tf_efficientnet_b5_ns_04d",
+    "batches_per_epoch": 500,
+    "size": 512,
+    "classes": ["pe_present_on_image"],
+    "fp16": true,
+    "studynmin": 2,
+    "studynmax": 8,
+    "pe_ratio": 0.25,
+    "optimizer": {
+        "type": "Adam",
+        "learning_rate": 0.0005,
+        "schedule": {
+            "type": "steplr",
+            "mode": "step",
+            "epochs": 100,
+            "params": {"step_size": 500, "gamma": 0.99}
+        }
+    },
+    "normalize": {
+        "mean": [0.22363983, 0.18190407, 0.2523437 ],
+        "std": [0.32451536, 0.2956294,  0.31335256]
+    },
+    "losses": {
+        "FocalBCEWithLogitsLoss": [1.0]
+    },
+    "image_target_cols": ["pe_present_on_image"],
+    "exam_target_cols": [],
+    "image_weight": 1.0,
+    "exam_weights": []
+
+}
