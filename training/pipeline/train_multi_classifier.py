@@ -185,7 +185,7 @@ logger.info('Start training')
 for epoch in range(args.epochs):
     logger.info(50*'-')
     trnloss = 0.
-    model.train()
+    model = model.train()
     pbar = tqdm(enumerate(trnloader), desc="Train epoch {}".format(epoch), ncols=0)
     for step, batch in pbar:
         ytrn = batch['labels'].to(args.device, dtype=torch.float)
@@ -212,7 +212,7 @@ for epoch in range(args.epochs):
     torch.save(model.state_dict(), output_model_file)
         
     scheduler.step()
-    model.eval()
+    model = model.eval()
     ypredls = []
     yvalls = []
     pbarval = tqdm(enumerate(valloader), desc="Train epoch {}".format(epoch), ncols=0)
@@ -221,8 +221,7 @@ for epoch in range(args.epochs):
         xval = batch['image'].to(args.device, dtype=torch.float)
         #logger.info(xval.shape)
         yval = ytrn.view(-1, 10)
-        with autocast():
-            out = model(xtrn)
+        out = model(xval)
         out = out.view(-1, 10)
         ypredls .append(out.detach().cpu())
         yvalls.append(yval.detach().cpu())
