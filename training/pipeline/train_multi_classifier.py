@@ -186,7 +186,7 @@ for epoch in range(args.epochs):
     logger.info(50*'-')
     trnloss = 0.
     model = model.train()
-    pbar = tqdm(enumerate(trnloader), desc="Train epoch {}".format(epoch), ncols=0)
+    pbar = tqdm(enumerate(trnloader), total = len(trndataset)//trnloader.batch_size, desc="Train epoch {}".format(epoch), ncols=0)
     for step, batch in pbar:
         ytrn = batch['labels'].to(args.device, dtype=torch.float)
         xtrn = batch['image'].to(args.device, dtype=torch.float)
@@ -215,7 +215,7 @@ for epoch in range(args.epochs):
     model = model.eval()
     ypredls = []
     yvalls = []
-    pbarval = tqdm(enumerate(valloader), desc="Train epoch {}".format(epoch), ncols=0)
+    pbarval = tqdm(enumerate(valloader), total = len(valdataset)//valloader.batch_size, desc="Train epoch {}".format(epoch), ncols=0)
     for step, batch in pbarval:
         ytrn = batch['labels'].to(args.device, dtype=torch.float)
         xval = batch['image'].to(args.device, dtype=torch.float)
