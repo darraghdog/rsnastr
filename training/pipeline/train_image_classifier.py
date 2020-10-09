@@ -7,7 +7,7 @@ import itertools
 from collections import defaultdict, OrderedDict
 import platform
 PATH = '/Users/dhanley/Documents/rsnastr' \
-        if platform.system() == 'Darwin' else '/mount'
+        if platform.system() == 'Darwin' else '/data/rsnastr' # '/mount'
 os.chdir(PATH)
 sys.path.append(PATH)
 import warnings
@@ -236,11 +236,10 @@ for epoch in range(start_epoch, max_epochs):
                           nmax = conf['studynmax'], 
                           seed = None)
         
-    if current_epoch == 0: 
-        trncts = trndataset.data.iloc[trnsampler.sample(trndataset.data)].pe_present_on_image.value_counts()
-        valcts = valdataset.data.iloc[valsampler.sample(valdataset.data)].pe_present_on_image.value_counts()
-        logger.info(f'Train class balance:\n{trncts}')
-        logger.info(f'Valid class balance:\n{valcts}')
+    trncts = trndataset.data.iloc[trnsampler.sample(trndataset.data)].pe_present_on_image.value_counts()
+    valcts = valdataset.data.iloc[valsampler.sample(trndataset.data)].pe_present_on_image.value_counts()
+    logger.info(f'Train class balance:\n{trncts}')
+    logger.info(f'Valid class balance:\n{valcts}')
     trnloader = DataLoader(trndataset, batch_size=args.batchsize, sampler = trnsampler, **loaderargs)
     model.train()
     pbar = tqdm(enumerate(trnloader), total=max_iters, desc="Epoch {}".format(current_epoch), ncols=0)
