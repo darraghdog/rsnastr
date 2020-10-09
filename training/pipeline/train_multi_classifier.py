@@ -207,16 +207,14 @@ for epoch in range(args.epochs):
     output_model_file = f'weights/exam_lstm_{conf["encoder"]}_epoch{epoch}_fold{args.fold}.bin'
     torch.save(model.state_dict(), output_model_file)
         
-    logger.info(f'Epoch {epoch} train loss all {trnloss/(step+1):.4f}')
     scheduler.step()
-    logger.info('Prep test sub...')
     model.eval()
     ypredls = []
     yvalls = []
     max_iters = 1+len(valdataset)//valloader.batch_size
     pbarval = tqdm(enumerate(valloader), total=max_iters, desc="Train epoch {}".format(epoch), ncols=0)
-    for step, batch in enumerate(pbarval):
-        ytrn = batch['labels']
+    for step, batch in pbarval:
+        ytrn = batch['labels'].to(args.device, dtype=torch.float)
         xtrn = batch['image'].to(args.device, dtype=torch.float)
         ytrn = ytrn.view(-1, 10)
         out = model(xtrn)
