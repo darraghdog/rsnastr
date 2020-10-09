@@ -57,3 +57,11 @@ sudo cp /usr/local/lib/gdcmswig.py /usr/local/lib/python3.6/dist-packages/.
 sudo cp /usr/local/lib/_gdcmswig.so /usr/local/lib/python3.6/dist-packages/.
 sudo cp /usr/local/lib/libgdcm* /usr/local/lib/python3.6/dist-packages/.
 sudo ldconfig
+
+
+A100 STEPS
+===========
+
+docker build -t rsnav01 -f DockerFile.docker .
+docker run -itd --name RSNA_CONTAINERV03 -v $PWD:/mount --gpus '"device=5"' --rm rsnav01:latest
+docker attach RSNA_CONTAINERV03
