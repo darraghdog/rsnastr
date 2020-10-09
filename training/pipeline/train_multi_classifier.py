@@ -205,7 +205,7 @@ for epoch in range(args.epochs):
     logger.info(50*'-')
     trnloss = 0.
     model = model.train()
-    pbar = tqdm(enumerate(trnloader), total = len(trndataset)//trnloader.batch_size, desc="Train epoch {}".format(epoch), ncols=0)
+    pbar = tqdm(enumerate(trnloader), total = len(trndataset)//trnloader.batch_size, desc=f"Train epoch {epoch}", ncols=0)
     for step, batch in pbar:
         ytrn = batch['labels'].to(args.device, dtype=torch.float)
         xtrn = batch['image'].to(args.device, dtype=torch.float)
@@ -223,6 +223,7 @@ for epoch in range(args.epochs):
             scaler.update()
             optimizer.zero_grad()
         trnloss += loss.item()
+        pbar.set_description(f"Train epoch {epoch} loss {trnloss/(1+step):.4f}")
         del xtrn, ytrn, out 
         if step%20==0:
             torch.cuda.empty_cache()
