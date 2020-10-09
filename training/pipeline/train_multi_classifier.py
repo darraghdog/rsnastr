@@ -207,7 +207,6 @@ for epoch in range(args.epochs):
     output_model_file = f'weights/exam_lstm_{conf["encoder"]}_epoch{epoch}_fold{args.fold}.bin'
     torch.save(model.state_dict(), output_model_file)
         
-    trn_loss, trn_img_loss, trn_exam_loss = rsna_criterion_all(*trncollect.concat(args.device), img_wt)
     logger.info(f'Epoch {epoch} train loss all {trnloss/(step+1):.4f}')
     scheduler.step()
     logger.info('Prep test sub...')
