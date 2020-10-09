@@ -186,8 +186,7 @@ for epoch in range(args.epochs):
     logger.info(50*'-')
     trnloss = 0.
     model.train()
-    max_iters = 1+len(trndataset)//(trnloader.batch_size)
-    pbar = tqdm(enumerate(trnloader), total=max_iters, desc="Train epoch {}".format(epoch), ncols=0)
+    pbar = tqdm(enumerate(trnloader), desc="Train epoch {}".format(epoch), ncols=0)
     for step, batch in pbar:
         ytrn = batch['labels'].to(args.device, dtype=torch.float)
         xtrn = batch['image'].to(args.device, dtype=torch.float)
@@ -215,16 +214,15 @@ for epoch in range(args.epochs):
     model.eval()
     ypredls = []
     yvalls = []
-    max_iters = 1+len(valdataset)//(valloader.batch_size)
-    pbarval = tqdm(enumerate(valloader), total=max_iters, desc="Train epoch {}".format(epoch), ncols=0)
+    pbarval = tqdm(enumerate(valloader), desc="Train epoch {}".format(epoch), ncols=0)
     for step, batch in pbarval:
         ytrn = batch['labels'].to(args.device, dtype=torch.float)
         xval = batch['image'].to(args.device, dtype=torch.float)
         ytrn = ytrn.view(-1, 10)
         out = model(xval)
         out = out.view(-1, 10)
-        ypredls .append(out.cpu())
-        yvalls.append(ytrn.cpu())
+        ypredls .append(out.detach().cpu())
+        yvalls.append(ytrn.detach().cpu())
     yval = torch.cat(yvalls)
     ypred = torch.cat(ypredls)
     valloss = bce_func_exam_cpu(ypred, yval)
