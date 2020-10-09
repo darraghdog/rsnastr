@@ -112,7 +112,7 @@ if False:
     args.config = 'configs/b2.json'
     args.config = 'configs/b2_binary.json'
     args.config = 'configs/rnxt101_binary.json'
-    args.config = 'configs/effnetb5_lr5e4_multi.json'
+    args.config = 'configs/effnetb2_lr5e4_multi.json'
 conf = load_config(args.config)
 
 
@@ -180,14 +180,12 @@ ypredls = []
 ypredtstls = []
 scaler = torch.cuda.amp.GradScaler()
 
-trndf = pd.read_csv('data/train.csv.zip')
-
 logger.info('Start training')
 for epoch in range(args.epochs):
     logger.info(50*'-')
     trnloss = 0.
     for step, batch in enumerate(trnloader):
-        ytrn = batch['labels']
+        ytrn = batch['labels'].to(args.device, dtype=torch.float)
         xtrn = batch['image'].to(args.device, dtype=torch.float)
         xtrn = torch.autograd.Variable(xtrn, requires_grad=True)
         ytrn = torch.autograd.Variable(ytrn)
