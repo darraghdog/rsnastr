@@ -86,6 +86,7 @@ class RSNASequenceDataset(Dataset):
                 out['imglabels'] = np.clip(out['imglabels'], self.label_smoothing, 1 - self.label_smoothing)
         return out
 
+
 def collateseqfn(batch):
     maxlen = max([l['emb'].shape[0] for l in batch])
     embdim = batch[0]['emb'].shape[1]
@@ -123,6 +124,142 @@ def collateseqfn(batch):
         outbatch['studylabels'] = torch.tensor(np.concatenate([b['studylabels'] for b in batch], 0))
         
     return outbatch
+    
+class RSNAImageSequenceDataset(Dataset):
+
+    def __init__(self, 
+                 transforms, 
+                 pos_sample_weight = 1.,
+                 sample_count = 12, 
+                 imgsize=512,
+                 mode="train", 
+                 data_path = 'data',
+                 crops_dir='jpegip',
+                 fold = 0, 
+                 labeltype='all', 
+                 label = True,
+                 imgclasses=["pe_present_on_image"],
+                 studyclasses=["pe_present_on_image"],
+                 label_smoothing=0.01,
+                 folds_csv='folds.csv.gz'):
+        self.mode = mode
+        self.imgclasses = imgclasses
+        self.studyclasses = studyclasses
+        self.crops_dir = crops_dir
+        self.datadir = data_path
+        self.label_smoothing = label_smoothing
+        self.labeltype = labeltype
+        self.label = label
+        self.sample_count = sample_count
+        self.datadir = data_path
+        self.crops_dir = crops_dir
+        self.fold = fold        
+        self.imgsize = imgsize
+        self.transform = transforms
+        self.folds_csv = folds_csv
+        self.datadf = self.loaddf()
+        self.folddf = pd.read_csv(f'{self.datadir}/{self.folds_csv}')
+        self.folddf = pd.merge(self.folddf, self.datadf.reset_index() \
+                          .filter(regex='Study|Series|negative_exam').drop_duplicates())
+        self.pos_sample_weight = pos_sample_weight
+
+    def __len__(self):
+        return len(self.folddf)
+
+    def __getitem__(self, idx):
+        # idx = 1
+        studyidx = self.folddf.iloc[idx].StudyInstanceUID
+        seriesidx = self.folddf.iloc[idx].SeriesInstanceUID
+        studydf = self.datadf.query('StudyInstanceUID == @studyidx')\
+                        .query('SeriesInstanceUID == @seriesidx')
+        
+        # Evenly weight pos and negative
+        if studydf["pe_present_on_image"].values.sum() > 0: 
+            selection_weight = float(self.pos_sample_weight) * \
+                            studydf["pe_present_on_image"].values / \
+                                (studydf["pe_present_on_image"].values.sum())
+            selection_weight[selection_weight==0] = 1 / \
+                            (studydf["pe_present_on_image"]==0).sum()
+        else:
+            selection_weight = np.ones(len(studydf))
+        samp = studydf.sample(self.sample_count, 
+                       weights=selection_weight).SOPInstanceUID.values
+        studydf = studydf[studydf.SOPInstanceUID.isin(samp)]
+        
+        try:
+            imgs = []
+            for i, samp in studydf.reset_index().iterrows():
+                img_name = self.image_file(samp)
+                # print(img_name)
+                # img_name ='data/jpeg/train/31746ab5e9bc/4308f361d8a4/b96d38eec625.jpg'
+                img = self.turboload(img_name)
+                if self.imgsize != 512:
+                    img = cv2.resize(img,(self.imgsize,self.imgsize), interpolation=cv2.INTER_AREA)
+                if self.transform:       
+                    augmented = self.transform(image=img)
+                    img = augmented['image']   
+                imgs.append(img)
+            imgs = torch.stack(imgs)
+            if self.mode in ['train', 'valid', 'all']:
+                label = studydf[self.imgclasses + self.studyclasses].values
+                if self.mode == 'train': 
+                    label = np.clip(label, self.label_smoothing, 1 - self.label_smoothing)
+                label = torch.tensor(label).float()
+                return {'studype': studyidx, 
+                        'image': imgs, 'labels': label}    
+            else:      
+                return {'img_name': img_name, 'image': imgs}
+        
+        except Exception as e:
+            print(f'Failed to load {img_name}...{e}')
+            return None
+        
+    # decoding input.jpg to BGR array
+    def turboload(self, f):
+        in_file = open(f, 'rb')
+        bgr_array = jpeg.decode(in_file.read())
+        in_file.close()
+        return bgr_array[:,:,::-1]
+    
+    def image_file(self, samp):
+        dirtype = 'train' if self.mode != 'test' else 'test'
+        return os.path.join(self.datadir, 
+                                self.crops_dir,
+                                dirtype,
+                                samp.StudyInstanceUID,
+                                samp.SeriesInstanceUID,
+                                samp.SOPInstanceUID) + '.jpg'
+    def loaddf(self):
+        fname = 'train.csv.zip' if self.mode in ['train', 'valid', 'all'] else 'test.csv.zip'
+        df = pd.read_csv(f'{self.datadir}/{fname}')
+        # if we are on Darwin filter
+        if platform.system() == 'Darwin':
+            self.filter = os.listdir(f'{self.datadir}/{self.crops_dir}/train')
+            df = df.query('StudyInstanceUID in @self.filter').reset_index(drop=True)
+        fdf = pd.read_csv(f'{self.datadir}/{self.folds_csv}')
+        fls = fdf.query('fold == @self.fold').StudyInstanceUID.tolist()
+        idx = df.StudyInstanceUID.isin(fls) 
+        if self.mode == 'train':
+            df = (df[~idx]).reset_index(drop=True)
+        if self.mode == 'valid':
+            df = (df[idx]).reset_index(drop=True)
+        return df
+    
+def collateseqimgfn(batch):
+    # Remove error reads
+    batch = [b for b in batch if b is not None]
+
+    # Pad with zero frames
+    x_batch = torch.stack([b['image'] for b in batch])
+    nm_batch = np.array([b['studype'] for b in batch])
+    
+    if 'labels' in batch[0]:
+        y_batch = torch.stack([b['labels'] for b in batch])
+        return {'image': x_batch, 'study': nm_batch, 'labels': y_batch}
+    else:
+        return {'image': x_batch, 'study': nm_batch}
+
+
 
 class RSNAClassifierDataset(Dataset):
 

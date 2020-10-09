@@ -1,6 +1,7 @@
 # Ripped from https://github.com/selimsef/dfdc_deepfake_challenge/blob/master/training/zoo/classifiers.py
 from functools import partial
 
+import timm
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -10,6 +11,8 @@ from torch import nn
 from torch.nn.modules.dropout import Dropout
 from torch.nn.modules.linear import Linear
 from torch.nn.modules.pooling import AdaptiveAvgPool2d
+import torch.nn.functional as F
+from torch import nn
 
 class SpatialDropout(nn.Dropout2d):
     def forward(self, x):
@@ -71,3 +74,54 @@ class LSTMNet(nn.Module):
         img_output = self.img_linear_out(img_hidden)
         
         return study_output, img_output
+
+class SpatialDropout(nn.Dropout2d):
+    def forward(self, x):
+        x = x.unsqueeze(2)    # (N, T, 1, K)
+        x = x.permute(0, 3, 2, 1)  # (N, K, 1, T)
+        x = super(SpatialDropout, self).forward(x)  # (N, K, 1, T), some features are masked
+        x = x.permute(0, 3, 2, 1)  # (N, T, 1, K)
+        x = x.squeeze(2)  # (N, T, K)
+        return x
+
+class StudyImgNet(nn.Module):
+    def __init__(self, encoder = 'mixnet_m', dropout = 0.2, 
+                 nclasses = 10, dense_units = 512):
+        # Only resnet is supported in this version
+        super(StudyImgNet, self).__init__()
+        self.encoder = timm.create_model(encoder, 
+                                         pretrained=True, 
+                                         num_classes=0)
+        self.dense_units = dense_units
+        self.dropout = dropout
+        self.embed_size = self.encoder.num_features
+        self.lstm = nn.LSTM(self.embed_size, 
+                            self.dense_units, 
+                            bidirectional=True, 
+                            batch_first=True)
+        self.linear = nn.Linear(self.dense_units*2, self.dense_units*2)
+        self.embedding_dropout = SpatialDropout(dropout)
+        self.linear_out = nn.Linear(self.dense_units*2, nclasses)
+        '''
+        self.linear_out = nn.Linear(self.dense_units*2, 1)
+        '''
+    
+    def forward(self, x):
+        # Input is batch of image sequences
+        batch_size, seqlen = x.size()[:2]
+        # Flatten to make a single long list of frames
+        x = x.view(batch_size * seqlen, *x.size()[2:])
+        # Pass each frame thru SPPNet
+        emb = self.encoder(x)
+        # Split back out to batch
+        emb = emb.view(batch_size, seqlen, emb.size()[1])
+        emb = self.embedding_dropout(emb)
+        
+        # Pass batch thru sequential model(s)
+        h_lstm, _ = self.lstm(emb)
+        h_pool_linear = F.relu(self.linear(h_lstm))
+        
+        # Classifier
+        hidden = h_lstm + h_pool_linear 
+        out = self.linear_out(hidden)
+        return out

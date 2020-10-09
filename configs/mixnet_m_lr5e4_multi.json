@@ -2,7 +2,7 @@
     "network": "RSNAClassifier",
     "pos_sample_weight": 1.0,
     "sample_count": 12,
-    "encoder": "tf_efficientnet_b5_ns_04d",
+    "encoder": "mixnet_m",
     "batches_per_epoch": 700,
     "size": 320,
     "classes": ["pe_present_on_image"],
