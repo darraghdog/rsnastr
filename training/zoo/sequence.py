@@ -95,13 +95,17 @@ class StudyImgNet(nn.Module):
         self.dense_units = dense_units
         self.dropout = dropout
         self.embed_size = self.encoder.num_features
-        self.lstm = nn.GRU(self.embed_size, 
-                            self.dense_units, 
-                            bidirectional=True, 
-                            batch_first=True)
-        self.linear = nn.Linear(self.dense_units*2, self.dense_units*2)
+        self.cnn1da = nn.Conv1d(self.embed_size, 
+                            self.dense_units,
+                            padding = 1,
+                            kernel_size = 5)
+        self.cnn1db = nn.Conv1d(self.dense_units, 
+                            self.dense_units,
+                            padding = 1,
+                            kernel_size = 5)
+        self.linear = nn.Linear(self.dense_units, self.dense_units)
         self.embedding_dropout = SpatialDropout(dropout)
-        self.linear_out = nn.Linear(self.dense_units*2, nclasses)
+        self.linear_out = nn.Linear(self.dense_units, nclasses)
         '''
         self.linear_out = nn.Linear(self.dense_units*2, 1)
         '''
@@ -118,10 +122,15 @@ class StudyImgNet(nn.Module):
         emb = self.embedding_dropout(emb)
         
         # Pass batch thru sequential model(s)
-        h_lstm, _ = self.lstm(emb)
-        h_pool_linear = F.relu(self.linear(h_lstm))
+        embc = self.cnn1da(emb.transpose(2, 1))
+        embc = F.relu(embc)
+        embc = self.embedding_dropout(embc)
+        embc = self.cnn1db(embc)
+        embc = F.relu(embc)
+        embc = embc.transpose(2, 1)
+        h_pool_linear = F.relu(self.linear(embc))
         
         # Classifier
-        hidden = h_lstm + h_pool_linear 
+        hidden = embc + h_pool_linear 
         out = self.linear_out(hidden)
         return out
