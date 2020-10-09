@@ -258,13 +258,23 @@ class nSampler(Sampler):
     
     def sample(self, data):
         # Only examlevel
-        if examlevel:
+        if self.examlevel:
             # Only take negative exams and positinve images
             # Leave off the fuzzy examples
-            self.data = \
-                pd.concat([self.data.query('negative_exam_for_pe == 1'), \
-                       self.data.query('pe_present_on_image == 1')]) \
-                        .reset_index(drop=True)
+            posdf = self.data.query('pe_present_on_image == 1').sample(frac=1)
+            negdf = self.data.query('negative_exam_for_pe == 1').sample(frac=1)
+            negdf = negdf[:int(posdf.shape[0]*self.pe_weight)]
+            self.data = pd.concat([posdf, negdf])
+            '''
+            self.data = self.data.query('pe_present_on_image == 1') \
+                    .sample(frac= 1, random_state=self.seed) \
+                    .groupby("StudyInstanceUID") \
+                    .head(self.nmax)
+            '''
+            samp = self.data.index.tolist()
+            print('Sampled base data pe present')
+            print(self.data.pe_present_on_image.value_counts())
+            return samp
         # Sample from all studies
         allsamp = self.data.sample(frac= 1, 
                                 random_state=self.seed) \

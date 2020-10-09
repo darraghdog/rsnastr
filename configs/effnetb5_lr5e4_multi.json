@@ -6,16 +6,15 @@
     "classes": ["pe_present_on_image"],
     "fp16": true,
     "studynmin": 2,
-    "studynmax": 6,
-    "pe_ratio": 0.5,
-    "image_weight": 0.5,
+    "studynmax": 2,
+    "pe_ratio": 1.0,
     "optimizer": {
         "type": "Adam",
         "learning_rate": 0.0005,
         "schedule": {
             "type": "steplr",
             "mode": "step",
-            "epochs": 10,
+            "epochs": 40,
             "params": {"step_size": 500, "gamma": 0.9}
         }
     },
