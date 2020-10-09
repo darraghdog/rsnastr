@@ -221,9 +221,10 @@ for epoch in range(args.epochs):
         xval = batch['image'].to(args.device, dtype=torch.float)
         #logger.info(xval.shape)
         yval = ytrn.view(-1, 10)
-        out = model(xval)
-        out = out.view(-1, 10)
-        ypredls .append(out.detach().cpu())
+        with autocast():
+            out = model(xval)
+            out = out.view(-1, 10)
+        ypredls .append(out.detach().float().cpu())
         yvalls.append(yval.detach().cpu())
         del xval, yval, out 
         if step%10==0:
