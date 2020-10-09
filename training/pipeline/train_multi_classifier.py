@@ -193,7 +193,7 @@ for epoch in range(args.epochs):
         xtrn = torch.autograd.Variable(xtrn, requires_grad=True)
         ytrn = torch.autograd.Variable(ytrn)
         ytrn = ytrn.view(-1, 10)
-        logger.info(xtrn.shape)
+        #logger.info(xtrn.shape)
         with autocast():
             out = model(xtrn)
             out = out.view(-1, 10)
@@ -219,9 +219,10 @@ for epoch in range(args.epochs):
     for step, batch in pbarval:
         ytrn = batch['labels'].to(args.device, dtype=torch.float)
         xval = batch['image'].to(args.device, dtype=torch.float)
-        logger.info(xval.shape)
+        #logger.info(xval.shape)
         yval = ytrn.view(-1, 10)
-        out = model(xval)
+        with autocast():
+            out = model(xtrn)
         out = out.view(-1, 10)
         ypredls .append(out.detach().cpu())
         yvalls.append(yval.detach().cpu())
