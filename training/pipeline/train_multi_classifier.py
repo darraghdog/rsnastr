@@ -39,6 +39,7 @@ from training.losses import getLoss
 from training import losses
 from torch.optim.swa_utils import AveragedModel, SWALR
 from tensorboardX import SummaryWriter
+from torch.utils.data import WeightedRandomSampler
 
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
@@ -100,6 +101,7 @@ arg('--crops-dir', type=str, default='jpegip')
 arg('--lstm_units',   type=int, default=512)
 arg('--epochs',   type=int, default=12)
 arg('--nbags',   type=int, default=12)
+arg('--accum', type=int, default=1)
 arg('--label-smoothing', type=float, default=0.00)
 arg('--logdir', type=str, default='logs/b2_1820')
 arg("--local_rank", default=0, type=int)
@@ -144,8 +146,20 @@ valdataset = RSNAImageSequenceDataset(mode="valid",
                                     transforms=create_val_transforms(conf['size']))
 
 logger.info('Create loaders...')
-trnloader = DataLoader(trndataset, batch_size=args.batchsize, shuffle=True, num_workers=8, collate_fn=collateseqimgfn)
-valloader = DataLoader(valdataset, batch_size=args.batchsize, shuffle=False, num_workers=8, collate_fn=collateseqimgfn)
+def sampler(dataset):
+    wts = dataset.folddf.negative_exam_for_pe.values
+    w0 = (wts>0.5).sum()
+    w1 = (wts<0.5).sum()
+    wts[wts==1] = w1
+    wts[wts==0] = w0
+    sampler = WeightedRandomSampler(wts, len(wts), replacement=True)
+    return sampler
+    
+valloader = DataLoader(valdataset, 
+                       batch_size=args.batchsize, 
+                       sampler=sampler(valdataset), 
+                       num_workers=8, 
+                       collate_fn=collateseqimgfn)
 # del embmat
 gc.collect()
 
@@ -183,6 +197,11 @@ scaler = torch.cuda.amp.GradScaler()
 
 logger.info('Start training')
 for epoch in range(args.epochs):
+    trnloader = DataLoader(trndataset, 
+                       batch_size=args.batchsize, 
+                       sampler=sampler(trndataset), 
+                       num_workers=8, 
+                       collate_fn=collateseqimgfn)
     logger.info(50*'-')
     trnloss = 0.
     model = model.train()
@@ -199,9 +218,10 @@ for epoch in range(args.epochs):
             out = out.view(-1, 10)
             loss = bce_func_exam(out, ytrn)
         scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
-        optimizer.zero_grad()
+        if (i % args.accum) == 0:
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad()
         trnloss += loss.item()
         del xtrn, ytrn, out 
         if step%20==0:
