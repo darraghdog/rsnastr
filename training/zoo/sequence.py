@@ -97,11 +97,11 @@ class StudyImgNet(nn.Module):
         self.embed_size = self.encoder.num_features
         self.cnn1da = nn.Conv1d(self.embed_size, 
                             self.dense_units,
-                            padding = 1,
+                            padding = 2,
                             kernel_size = 5)
         self.cnn1db = nn.Conv1d(self.dense_units, 
                             self.dense_units,
-                            padding = 1,
+                            padding = 2,
                             kernel_size = 5)
         self.linear = nn.Linear(self.dense_units, self.dense_units)
         self.embedding_dropout = SpatialDropout(dropout)
@@ -114,9 +114,9 @@ class StudyImgNet(nn.Module):
         # Input is batch of image sequences
         batch_size, seqlen = x.size()[:2]
         # Flatten to make a single long list of frames
-        x = x.view(batch_size * seqlen, *x.size()[2:])
+        x1 = x.view(batch_size * seqlen, *x.size()[2:])
         # Pass each frame thru SPPNet
-        emb = self.encoder(x)
+        emb = self.encoder(x1)
         # Split back out to batch
         emb = emb.view(batch_size, seqlen, emb.size()[1])
         emb = self.embedding_dropout(emb)
