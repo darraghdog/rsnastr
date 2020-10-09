@@ -218,7 +218,7 @@ for epoch in range(args.epochs):
             out = out.view(-1, 10)
             loss = bce_func_exam(out, ytrn)
         scaler.scale(loss).backward()
-        if (i % args.accum) == 0:
+        if (step % args.accum) == (1-args.accum):
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad()
