@@ -115,7 +115,6 @@ if False:
     args.config = 'configs/effnetb2_lr5e4_multi.json'
 conf = load_config(args.config)
 
-
 logger.info('Create traindatasets')
 trndataset = RSNAImageSequenceDataset(mode="train",\
                                        fold=args.fold,\
@@ -152,7 +151,7 @@ gc.collect()
 
 logger.info('Create model')
 nc = len(conf['image_target_cols']+conf['exam_target_cols'])
-model = StudyImgNet(conf['encoder'], 
+model =self= StudyImgNet(conf['encoder'], 
                    dropout = 0.2,
                    nclasses = nc,
                    dense_units = 512)
@@ -185,7 +184,9 @@ for epoch in range(args.epochs):
     logger.info(50*'-')
     trnloss = 0.
     model.train()
-    for step, batch in enumerate(trnloader):
+    max_iters = 1+len(trndataset)//trnloader.batch_size
+    pbar = tqdm(enumerate(trnloader), total=max_iters, desc="Train epoch {}".format(epoch), ncols=0)
+    for step, batch in pbar:
         ytrn = batch['labels'].to(args.device, dtype=torch.float)
         xtrn = batch['image'].to(args.device, dtype=torch.float)
         xtrn = torch.autograd.Variable(xtrn, requires_grad=True)
@@ -201,7 +202,7 @@ for epoch in range(args.epochs):
         optimizer.zero_grad()
         
         trnloss += loss.item()
-        if step % 50==0: logger.info(f'Trn loss:{trnloss/(step+1):.5f}')
+    logger.info(f'Epoch {epoch} valid loss all {trnloss/(step+1):.4f}')
         
     output_model_file = f'weights/exam_lstm_{conf["encoder"]}_epoch{epoch}_fold{args.fold}.bin'
     torch.save(model.state_dict(), output_model_file)
@@ -213,7 +214,9 @@ for epoch in range(args.epochs):
     model.eval()
     ypredls = []
     yvalls = []
-    for step, batch in enumerate(valloader):
+    max_iters = 1+len(valdataset)//valloader.batch_size
+    pbarval = tqdm(enumerate(valloader), total=max_iters, desc="Train epoch {}".format(epoch), ncols=0)
+    for step, batch in enumerate(pbarval):
         ytrn = batch['labels']
         xtrn = batch['image'].to(args.device, dtype=torch.float)
         ytrn = ytrn.view(-1, 10)
@@ -224,5 +227,5 @@ for epoch in range(args.epochs):
     yval = torch.cat(yvalls)
     ypred = torch.cat(ypredls)
     valloss = bce_func_exam(ypred, yval)
-    logger.info(f'Epoch {epoch} train loss all {valloss.item():.4f}')
+    logger.info(f'Epoch {epoch} valid loss all {valloss.item():.4f}')
     del yvalls, ypredls, ypred, yval
