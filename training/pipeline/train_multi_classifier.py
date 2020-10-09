@@ -195,6 +195,11 @@ ypredls = []
 ypredtstls = []
 scaler = torch.cuda.amp.GradScaler()
 
+pbar = tqdm(["a", "b", "c", "d"])
+for char in pbar:
+    pbar.set_description("Processing %s" % char)
+
+
 logger.info('Start training')
 for epoch in range(args.epochs):
     trnloader = DataLoader(trndataset, 
@@ -223,7 +228,7 @@ for epoch in range(args.epochs):
             scaler.update()
             optimizer.zero_grad()
         trnloss += loss.item()
-        pbar.set_description(f"Train epoch {epoch} loss {trnloss/(1+step):.4f}")
+        pbar.set_postfix({'loss': trnloss/(1+step)})
         del xtrn, ytrn, out 
         if step%20==0:
             torch.cuda.empty_cache()
