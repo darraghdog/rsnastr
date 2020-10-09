@@ -203,6 +203,9 @@ for epoch in range(args.epochs):
         scaler.update()
         optimizer.zero_grad()
         trnloss += loss.item()
+        del xtrn, ytrn, out 
+        if step%20==0:
+            torch.cuda.empty_cache()
     logger.info(f'Epoch {epoch} valid loss all {trnloss/(step+1):.4f}')
         
     output_model_file = f'weights/exam_lstm_{conf["encoder"]}_epoch{epoch}_fold{args.fold}.bin'
