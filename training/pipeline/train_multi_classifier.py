@@ -205,7 +205,7 @@ for epoch in range(args.epochs):
         del xtrn, ytrn, out 
         if step%20==0:
             torch.cuda.empty_cache()
-    logger.info(f'Epoch {epoch} valid loss all {trnloss/(step+1):.4f}')
+    logger.info(f'Epoch {epoch} train loss all {trnloss/(step+1):.4f}')
         
     output_model_file = f'weights/exam_lstm_{conf["encoder"]}_epoch{epoch}_fold{args.fold}.bin'
     torch.save(model.state_dict(), output_model_file)
@@ -218,13 +218,17 @@ for epoch in range(args.epochs):
     for step, batch in pbarval:
         ytrn = batch['labels'].to(args.device, dtype=torch.float)
         xval = batch['image'].to(args.device, dtype=torch.float)
-        ytrn = ytrn.view(-1, 10)
+        yval = ytrn.view(-1, 10)
         out = model(xval)
         out = out.view(-1, 10)
         ypredls .append(out.detach().cpu())
-        yvalls.append(ytrn.detach().cpu())
+        yvalls.append(yval.detach().cpu())
+        del xval, yval, out 
+        if step%10==0:
+            torch.cuda.empty_cache()
     yval = torch.cat(yvalls)
     ypred = torch.cat(ypredls)
+    logger.info('Get loss')
     valloss = bce_func_exam_cpu(ypred, yval)
     logger.info(f'Epoch {epoch} valid loss all {valloss.item():.4f}')
     del yvalls, ypredls, ypred, yval
