@@ -95,7 +95,7 @@ class StudyImgNet(nn.Module):
         self.dense_units = dense_units
         self.dropout = dropout
         self.embed_size = self.encoder.num_features
-        self.lstm = nn.LSTM(self.embed_size, 
+        self.lstm = nn.GRU(self.embed_size, 
                             self.dense_units, 
                             bidirectional=True, 
                             batch_first=True)
