@@ -184,6 +184,7 @@ logger.info('Start training')
 for epoch in range(args.epochs):
     logger.info(50*'-')
     trnloss = 0.
+    model.train()
     for step, batch in enumerate(trnloader):
         ytrn = batch['labels'].to(args.device, dtype=torch.float)
         xtrn = batch['image'].to(args.device, dtype=torch.float)
