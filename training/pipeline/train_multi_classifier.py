@@ -144,7 +144,7 @@ valdataset = RSNAImageSequenceDataset(mode="valid",
                                     transforms=create_val_transforms(conf['size']))
 
 logger.info('Create loaders...')
-trnloader = DataLoader(valdataset, batch_size=args.batchsize, shuffle=True, num_workers=8, collate_fn=collateseqimgfn)
+trnloader = DataLoader(trndataset, batch_size=args.batchsize, shuffle=True, num_workers=8, collate_fn=collateseqimgfn)
 valloader = DataLoader(valdataset, batch_size=args.batchsize, shuffle=False, num_workers=8, collate_fn=collateseqimgfn)
 # del embmat
 gc.collect()
