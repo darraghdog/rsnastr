@@ -479,7 +479,7 @@ class valSeedSampler(Sampler):
         
         return epsamp
 
-'''
+
 class examSampler(Sampler):
     r"""Sample N from each of the foloing for validation
     1) Positive samples
@@ -512,5 +512,3 @@ class examSampler(Sampler):
         sample_idx = folddf.reset_index().set_index('StudyInstanceUID').loc[StudyInstanceUIDSeq]['index'].values
         
         return sample_idx
-'''
-
