@@ -105,7 +105,9 @@ class StudyImgNet(nn.Module):
                             kernel_size = 5)
         self.linear = nn.Linear(self.dense_units, self.dense_units)
         self.embedding_dropout = SpatialDropout(dropout)
-        self.linear_out = nn.Linear(self.dense_units, nclasses)
+        self.linear_img_out = nn.Linear(self.dense_units, 1)
+        self.linear_exm = nn.Linear(self.dense_units*2, self.dense_units*2)
+        self.linear_exm_out = nn.Linear(self.dense_units*2, 9)
         '''
         self.linear_out = nn.Linear(self.dense_units*2, 1)
         '''
@@ -130,7 +132,16 @@ class StudyImgNet(nn.Module):
         embc = embc.transpose(2, 1)
         h_pool_linear = F.relu(self.linear(embc))
         
-        # Classifier
+        # Classifier Image
         hidden = embc + h_pool_linear 
-        out = self.linear_out(hidden)
-        return out
+        outimg = self.linear_img_out(hidden)
+        
+        # Classifier Exam
+        avg_pool = torch.mean(embc, 1)
+        max_pool, _ = torch.max(embc, 1)
+        h_study_conc = torch.cat((max_pool, avg_pool), 1)
+        h_study_conc_linear1  = nn.functional.relu(self.linear_exm(h_study_conc))
+        study_hidden = h_study_conc + h_study_conc_linear1
+        outexm = self.linear_exm_out(study_hidden)
+        
+        return outimg, outexm
