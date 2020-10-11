@@ -21,11 +21,13 @@ import pandas as pd
 from turbojpeg import TurboJPEG
 jpeg = TurboJPEG()
 
+from torch.utils.data import Dataset
 class RSNASequenceDataset(Dataset):
 
     def __init__(self, 
                  datadf,
-                 embmat,
+                 embimgmat,
+                 embexmmat,
                  folddf,
                  mode="train", 
                  fold = 0, 
@@ -52,7 +54,8 @@ class RSNASequenceDataset(Dataset):
         self.studyclasses = studyclasses
         self.label_smoothing = label_smoothing
         self.labeltype = labeltype
-        self.embmat = embmat
+        self.embimgmat = embimgmat
+        self.embexmmat = embexmmat
         self.label = label
 
     def __len__(self):
@@ -64,7 +67,10 @@ class RSNASequenceDataset(Dataset):
         seriesidx = self.folddf.iloc[idx].SeriesInstanceUID
         studydf = self.datadf.loc[studyidx].query('SeriesInstanceUID == @seriesidx')
         embidx = self.datadf.index == studyidx
-        studyemb = self.embmat[embidx]
+        #studyimgemb = self.embimgmat[embidx]
+        #studyexmemb = self.embexmmat[embidx]
+        studyemb = np.concatenate((self.embimgmat[embidx],
+                                   self.embexmmat[embidx]),1)
         imgnames  = studydf.SOPInstanceUID.values
         
         out = {'emb': studyemb, 
@@ -125,6 +131,7 @@ def collateseqfn(batch):
         
     return outbatch
     
+    
 class RSNAImageSequenceDataset(Dataset):
 
     def __init__(self, 
@@ -137,6 +144,7 @@ class RSNAImageSequenceDataset(Dataset):
                  crops_dir='jpegip',
                  fold = 0, 
                  labeltype='all', 
+                 balanced=True, 
                  label = True,
                  imgclasses=["pe_present_on_image"],
                  studyclasses=["pe_present_on_image"],
@@ -151,6 +159,7 @@ class RSNAImageSequenceDataset(Dataset):
         self.labeltype = labeltype
         self.label = label
         self.sample_count = sample_count
+        self.balanced = balanced
         self.datadir = data_path
         self.crops_dir = crops_dir
         self.fold = fold        
@@ -174,7 +183,7 @@ class RSNAImageSequenceDataset(Dataset):
                         .query('SeriesInstanceUID == @seriesidx')
         
         # Evenly weight pos and negative
-        if studydf["pe_present_on_image"].values.sum() > 0: 
+        if self.balanced and (studydf["pe_present_on_image"].values.sum() > 0): 
             selection_weight = float(self.pos_sample_weight) * \
                             studydf["pe_present_on_image"].values / \
                                 (studydf["pe_present_on_image"].values.sum())
@@ -182,8 +191,12 @@ class RSNAImageSequenceDataset(Dataset):
                             (studydf["pe_present_on_image"]==0).sum()
         else:
             selection_weight = np.ones(len(studydf))
-        samp = studydf.sample(self.sample_count, 
-                       weights=selection_weight).SOPInstanceUID.values
+            
+        sample_count = self.sample_count \
+            if studydf.shape[0] >= self.sample_count else studydf.shape[0]
+        samp = studydf.sample(sample_count, 
+                   weights=selection_weight).SOPInstanceUID.values
+
         studydf = studydf[studydf.SOPInstanceUID.isin(samp)]
         
         try:
