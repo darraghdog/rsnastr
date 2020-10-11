@@ -9,8 +9,7 @@ import sys
 import itertools
 from collections import defaultdict, OrderedDict
 import platform
-PATH = '/Users/dhanley/Documents/rsnastr' \
-        if platform.system() == 'Darwin' else '/data/rsnastr'
+PATH = '/Users/dhanley/Documents/rsnastr'         if platform.system() == 'Darwin' else '/data/rsnastr'
 os.chdir(PATH)
 sys.path.append(PATH)
 import warnings
@@ -52,6 +51,10 @@ import albumentations as A
 from albumentations.pytorch import ToTensor
 logger = get_logger('LSTM', 'INFO') 
 
+
+# In[2]:
+
+
 def create_train_transforms_multi(size=300, distort = False):
     return A.Compose([
         #A.HorizontalFlip(p=0.5),   # right/left
@@ -75,10 +78,14 @@ def create_val_transforms(size=300, HFLIPVAL = 1.0, TRANSPOSEVAL = 1.0):
         ToTensor()
     ])
 
+
+# In[3]:
+
 '''
 import sys; sys.argv=['']; del sys
-logger.info('Load args')
 '''
+logger.info('Load args')
+
 parser = argparse.ArgumentParser()
 arg = parser.add_argument
 arg('--config', metavar='CONFIG_FILE', help='path to configuration file')
@@ -88,8 +95,8 @@ arg('--gpu', type=str, default='0', help='List of GPUs for parallel training, e.
 arg('--output-dir', type=str, default='weights/')
 arg('--resume', type=str, default='')
 arg('--fold', type=int, default=0)
-arg('--batchsize', type=int, default=4)
-arg('--lr', type=float, default = 0.00001)
+arg('--batchsize', type=int, default=1)
+arg('--lr', type=float, default = 0.0001)
 arg('--lrgamma', type=float, default = 0.98)
 arg('--labeltype', type=str, default='all') # or 'single'
 arg('--dropout', type=float, default = 0.2)
@@ -99,9 +106,9 @@ arg('--folds-csv', type=str, default='folds.csv.gz')
 arg('--nclasses', type=str, default=1)
 arg('--crops-dir', type=str, default='jpegip')
 arg('--lstm_units',   type=int, default=512)
-arg('--epochs',   type=int, default=12)
+arg('--epochs',   type=int, default=32)
 arg('--nbags',   type=int, default=12)
-arg('--accum', type=int, default=1)
+arg('--accum', type=int, default=16)
 arg('--label-smoothing', type=float, default=0.00)
 arg('--logdir', type=str, default='logs/b2_1820')
 arg("--local_rank", default=0, type=int)
@@ -109,41 +116,32 @@ arg('--embrgx', type=str, default='weights/image_weights_regex')
 arg("--seed", default=777, type=int)
 args = parser.parse_args()
 
-
-if False:
-    args.config = 'configs/b2.json'
-    args.config = 'configs/b2_binary.json'
-    args.config = 'configs/rnxt101_binary.json'
-    args.config = 'configs/effnetb2_lr5e4_multi.json'
+# In[4]:
 conf = load_config(args.config)
+# In[5]:
+
+# In[6]:
+
 
 logger.info('Create traindatasets')
-trndataset = RSNAImageSequenceDataset(mode="train",\
-                                       fold=args.fold,\
-                                       pos_sample_weight = conf['pos_sample_weight'],\
-                                       sample_count = conf['sample_count'], \
-                                       imgsize = conf['size'],\
-                                       crops_dir=args.crops_dir,\
-                                       imgclasses=conf["image_target_cols"],\
-                                       studyclasses=conf['exam_target_cols'],\
-                                       data_path=args.data_dir,\
-                                       label_smoothing=args.label_smoothing,\
-                                       folds_csv=args.folds_csv,\
-                                       transforms=create_train_transforms_multi(conf['size'])\
-                                           if len(conf['exam_target_cols'])>0 else \
-                                           create_train_transforms_binary(conf['size']))
+trndataset = RSNAImageSequenceDataset(mode="train",                                       fold=args.fold,                                       pos_sample_weight = conf['pos_sample_weight'],                                       sample_count = conf['sample_count'],                                        imgsize = conf['size'],                                       crops_dir=args.crops_dir,                                       balanced=conf['balanced'],                                       imgclasses=conf["image_target_cols"],                                       studyclasses=conf['exam_target_cols'],                                       data_path=args.data_dir,                                       label_smoothing=args.label_smoothing,                                       folds_csv=args.folds_csv,                                       transforms=create_train_transforms_multi(conf['size'])                                           if len(conf['exam_target_cols'])>0 else                                            create_train_transforms_binary(conf['size']))
 logger.info('Create valdatasets')
 valdataset = RSNAImageSequenceDataset(mode="valid",
                                     fold=args.fold,
                                     pos_sample_weight = conf['pos_sample_weight'],
                                     sample_count = conf['sample_count'], 
                                     crops_dir=args.crops_dir,
+                                    balanced=conf['balanced'],
                                     imgclasses=conf["image_target_cols"],
                                     studyclasses=conf['exam_target_cols'],
                                     imgsize = conf['size'],
                                     data_path=args.data_dir,
                                     folds_csv=args.folds_csv,
                                     transforms=create_val_transforms(conf['size']))
+
+
+# In[7]:
+
 
 logger.info('Create loaders...')
 def sampler(dataset):
@@ -158,7 +156,7 @@ def sampler(dataset):
 valloader = DataLoader(valdataset, 
                        batch_size=args.batchsize, 
                        sampler=sampler(valdataset), 
-                       num_workers=8, 
+                       num_workers=32, 
                        collate_fn=collateseqimgfn)
 # del embmat
 gc.collect()
@@ -185,19 +183,19 @@ plist = [
 optimizer = torch.optim.Adam(plist, lr=args.lr)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=args.lrgamma, last_epoch=-1)
 
+# Exam Loss
+bcewLL_func = torch.nn.BCEWithLogitsLoss(reduction='none')
 
-bce_wts = torch.tensor([conf['image_weight']] + conf['exam_weights'])
-bce_func_exam = torch.nn.BCEWithLogitsLoss(weight = bce_wts.to(args.device))
-bce_func_exam_cpu = torch.nn.BCEWithLogitsLoss(weight = bce_wts)
+
+# In[8]:
 
 
 ypredls = []
 ypredtstls = []
 scaler = torch.cuda.amp.GradScaler()
 
-pbar = tqdm(["a", "b", "c", "d"])
-for char in pbar:
-    pbar.set_description("Processing %s" % char)
+
+# In[ ]:
 
 
 logger.info('Start training')
@@ -205,12 +203,21 @@ for epoch in range(args.epochs):
     trnloader = DataLoader(trndataset, 
                        batch_size=args.batchsize, 
                        sampler=sampler(trndataset), 
-                       num_workers=8, 
+                       num_workers=32, 
                        collate_fn=collateseqimgfn)
     logger.info(50*'-')
-    trnloss = 0.
+    trnloss   = 0.
+    trnwts    = 0.
+    trnimgloss   = 0.
+    trnimgwts    = 0.
+    trnexmloss   = 0.
+    trnexmwts    = 0.
+    label_w = torch.tensor(conf['exam_weights']).to(args.device, dtype=torch.float)
+    img_w = torch.tensor(conf['image_weight']).to(args.device, dtype=torch.float)
     model = model.train()
-    pbar = tqdm(enumerate(trnloader), total = len(trndataset)//trnloader.batch_size, desc=f"Train epoch {epoch}", ncols=0)
+    pbar = tqdm(enumerate(trnloader), 
+                total = len(trndataset)//trnloader.batch_size, 
+                desc=f"Train epoch {epoch}", ncols=0)
     for step, batch in pbar:
         ytrn = batch['labels'].to(args.device, dtype=torch.float)
         xtrn = batch['image'].to(args.device, dtype=torch.float)
@@ -219,45 +226,83 @@ for epoch in range(args.epochs):
         ytrn = ytrn.view(-1, 10)
         #logger.info(xtrn.shape)
         with autocast():
-            out = model(xtrn)
-            out = out.view(-1, 10)
-            loss = bce_func_exam(out, ytrn)
+            outimg, outexm = model(xtrn)
+            # Exam loss
+            exam_loss = bcewLL_func(outexm, ytrn[:1,1:])
+            exam_loss = torch.sum(exam_loss*label_w, 1)[0]
+            # Image loss
+            y_pred_img_ = outimg.squeeze(-1)
+            y_true_img_ = ytrn[:,:1].transpose(0,1)
+            image_loss = bcewLL_func(y_pred_img_, y_true_img_)
+            img_num = y_pred_img_.shape[-1]
+            qi = torch.sum(y_true_img_)
+            image_loss = torch.sum(img_w*qi*image_loss)
+            # Sum it all
+            samploss = exam_loss+image_loss
+            sampwts = label_w.sum() + (img_w*qi*img_num)
+        loss = (samploss/sampwts) / args.accum
         scaler.scale(loss).backward()
-        if (step % args.accum) == 0:
+        trnloss += samploss.item()
+        trnwts += sampwts.item()
+        trnimgloss   += image_loss.item()
+        trnimgwts    += (img_w*qi*img_num).item()
+        trnexmloss   += exam_loss.item()
+        trnexmwts    += label_w.sum().item()
+        # logger.info(f'{image_loss.item():.4f}\t{(img_w*qi*img_num).item():.4f}\t{exam_loss.item():.4f}\t{label_w.sum().item():.4f}\t')
+        if (step+1) % args.accum == 0:
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad()
-        trnloss += loss.item()
-        pbar.set_postfix({'loss': trnloss/(1+step)})
-        del xtrn, ytrn, out 
-        if step%20==0:
-            torch.cuda.empty_cache()
-    logger.info(f'Epoch {epoch} train loss all {trnloss/(step+1):.4f}')
-        
+        final_trn_loss = trnloss/trnwts
+        pbar.set_postfix({'train loss': final_trn_loss, 
+                          'image loss': trnimgloss/trnimgwts, 
+                          'exam loss': trnexmloss/trnexmwts})
+        del xtrn, ytrn, outimg, outexm
+        if step%100==0:
+            torch.cuda.empty_cache()    
+    logger.info(f'Epoch {epoch} train loss all {final_trn_loss:.4f}')
     output_model_file = f'weights/exam_lstm_{conf["encoder"]}_epoch{epoch}_fold{args.fold}.bin'
     torch.save(model.state_dict(), output_model_file)
-        
     scheduler.step()
-    model = model.eval()
+    model.eval()
+    valloss   = 0.
+    valwts    = 0.
     ypredls = []
     yvalls = []
-    pbarval = tqdm(enumerate(valloader), total = len(valdataset)//valloader.batch_size, desc="Train epoch {}".format(epoch), ncols=0)
+    pbarval = tqdm(enumerate(valloader), 
+                   total = len(valdataset)//valloader.batch_size, 
+                   desc="Train epoch {}".format(epoch), ncols=0)
     for step, batch in pbarval:
-        ytrn = batch['labels'].to(args.device, dtype=torch.float)
-        xval = batch['image'].to(args.device, dtype=torch.float)
+        y = batch['labels'].to(args.device, dtype=torch.float)
+        x = batch['image'].to(args.device, dtype=torch.float)
         #logger.info(xval.shape)
-        yval = ytrn.view(-1, 10)
-        with autocast():
-            out = model(xval)
-            out = out.view(-1, 10)
-        ypredls .append(out.detach().float().cpu())
-        yvalls.append(yval.detach().cpu())
-        del xval, yval, out 
-        if step%10==0:
-            torch.cuda.empty_cache()
-    yval = torch.cat(yvalls)
-    ypred = torch.cat(ypredls)
-    logger.info('Get loss')
-    valloss = bce_func_exam_cpu(ypred, yval)
-    logger.info(f'Epoch {epoch} valid loss all {valloss.item():.4f}')
-    del yvalls, ypredls, ypred, yval
+        y = y.view(-1, 10)
+        with torch.no_grad():
+            outimg, outexm = model(x)
+            # Exam loss
+            exam_loss = bcewLL_func(outexm, y[:1,1:])
+            exam_loss = torch.sum(exam_loss*label_w, 1)[0]
+            # Image loss
+            y_pred_img_ = outimg.squeeze(-1)
+            y_true_img_ = y[:,:1].transpose(0,1)
+            image_loss = bcewLL_func(y_pred_img_, y_true_img_)
+            img_num = y_pred_img_.shape[-1]
+            qi = torch.sum(y_true_img_)
+            image_loss = torch.sum(img_w*qi*image_loss)
+            # Sum it all
+            samploss = exam_loss+image_loss
+            sampwts = label_w.sum() + img_w*qi*img_num
+        valloss += samploss.item()
+        valwts += sampwts.item()
+        final_val_loss = valloss/valwts
+        pbarval.set_postfix({'valid loss': final_val_loss})
+        del x, y, outimg, outexm
+        torch.cuda.empty_cache()
+    logger.info(f'Epoch {epoch} valid loss all {final_val_loss:.4f}')
+
+
+# In[ ]:
+
+
+
+

@@ -202,16 +202,20 @@ class RSNAImageSequenceDataset(Dataset):
         try:
             imgs = []
             for i, samp in studydf.reset_index().iterrows():
-                img_name = self.image_file(samp)
-                # print(img_name)
-                # img_name ='data/jpeg/train/31746ab5e9bc/4308f361d8a4/b96d38eec625.jpg'
-                img = self.turboload(img_name)
-                if self.imgsize != 512:
-                    img = cv2.resize(img,(self.imgsize,self.imgsize), interpolation=cv2.INTER_AREA)
-                if self.transform:       
-                    augmented = self.transform(image=img)
-                    img = augmented['image']   
-                imgs.append(img)
+                try:
+                    img_name = self.image_file(samp)
+                    # print(img_name)
+                    # img_name ='data/jpeg/train/31746ab5e9bc/4308f361d8a4/b96d38eec625.jpg'
+                    img = self.turboload(img_name)
+                    if self.imgsize != 512:
+                        img = cv2.resize(img,(self.imgsize,self.imgsize), interpolation=cv2.INTER_AREA)
+                    if self.transform:       
+                        augmented = self.transform(image=img)
+                        img = augmented['image']   
+                    imgs.append(img)
+                except Exception as e:
+                    imgs.append(img)
+                    print(f'Failed to load {img_name}...{e}')
             imgs = torch.stack(imgs)
             if self.mode in ['train', 'valid', 'all']:
                 label = studydf[self.imgclasses + self.studyclasses].values
