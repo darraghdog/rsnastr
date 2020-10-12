@@ -9,7 +9,7 @@ import sys
 import itertools
 from collections import defaultdict, OrderedDict
 import platform
-PATH = '/Users/dhanley/Documents/rsnastr'         if platform.system() == 'Darwin' else '/data/rsnastr'
+PATH = '/Users/dhanley/Documents/rsnastr'         if platform.system() == 'Darwin' else '/mount'
 os.chdir(PATH)
 sys.path.append(PATH)
 import warnings
@@ -155,8 +155,9 @@ def sampler(dataset):
     
 valloader = DataLoader(valdataset, 
                        batch_size=args.batchsize, 
-                       sampler=sampler(valdataset), 
-                       num_workers=32, 
+                       shuffle=False,
+                       # sampler=sampler(valdataset), 
+                       num_workers=16, 
                        collate_fn=collateseqimgfn)
 # del embmat
 gc.collect()
@@ -203,7 +204,7 @@ for epoch in range(args.epochs):
     trnloader = DataLoader(trndataset, 
                        batch_size=args.batchsize, 
                        sampler=sampler(trndataset), 
-                       num_workers=32, 
+                       num_workers=16, 
                        collate_fn=collateseqimgfn)
     logger.info(50*'-')
     trnloss   = 0.
@@ -255,7 +256,7 @@ for epoch in range(args.epochs):
             optimizer.zero_grad()
         final_trn_loss = trnloss/trnwts
         pbar.set_postfix({'train loss': final_trn_loss, 
-                          'image loss': trnimgloss/trnimgwts, 
+                          'image loss': (trnimgloss/trnimgwts) if trnimgloss>0 else 0, 
                           'exam loss': trnexmloss/trnexmwts})
         del xtrn, ytrn, outimg, outexm
         if step%100==0:
@@ -267,6 +268,10 @@ for epoch in range(args.epochs):
     model.eval()
     valloss   = 0.
     valwts    = 0.
+    valimgloss   = 0.
+    valimgwts    = 0.
+    valexmloss   = 0.
+    valexmwts    = 0.
     ypredls = []
     yvalls = []
     pbarval = tqdm(enumerate(valloader), 
@@ -294,8 +299,14 @@ for epoch in range(args.epochs):
             sampwts = label_w.sum() + img_w*qi*img_num
         valloss += samploss.item()
         valwts += sampwts.item()
+        valimgloss   += image_loss.item()
+        valimgwts    += (img_w*qi*img_num).item()
+        valexmloss   += exam_loss.item()
+        valexmwts    += label_w.sum().item()
         final_val_loss = valloss/valwts
-        pbarval.set_postfix({'valid loss': final_val_loss})
+        pbar.set_postfix({'valid loss': final_trn_loss,
+                          'image loss': (valimgloss/trnimgwts) if valimgloss>0 else 0,
+                          'exam loss': valexmloss/valexmwts})
         del x, y, outimg, outexm
         torch.cuda.empty_cache()
     logger.info(f'Epoch {epoch} valid loss all {final_val_loss:.4f}')
