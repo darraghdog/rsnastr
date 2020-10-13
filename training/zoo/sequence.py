@@ -36,7 +36,7 @@ class LSTMNet(nn.Module):
         self.nimgclasses = nimgclasses
         self.nstudyclasses = nstudyclasses
         self.embed_size = embed_size
-        self.embedding_dropout = SpatialDropout(0.0) #DO)
+        self.embedding_dropout = SpatialDropout(DO)
         
         self.lstm1 = nn.LSTM(embed_size, LSTM_UNITS, bidirectional=True, batch_first=True)
         self.lstm2 = nn.LSTM(LSTM_UNITS * 2, LSTM_UNITS, bidirectional=True, batch_first=True)
@@ -53,7 +53,7 @@ class LSTMNet(nn.Module):
         h_embedding = x
 
         h_embadd = torch.cat((h_embedding[:,:,:self.embed_size], h_embedding[:,:,:self.embed_size]), -1)
-        
+        h_embadd = self.embedding_dropout(h_embadd)
         h_lstm1, _ = self.lstm1(h_embedding)
         h_lstm2, _ = self.lstm2(h_lstm1)
         
@@ -74,15 +74,6 @@ class LSTMNet(nn.Module):
         img_output = self.img_linear_out(img_hidden)
         
         return study_output, img_output
-
-class SpatialDropout(nn.Dropout2d):
-    def forward(self, x):
-        x = x.unsqueeze(2)    # (N, T, 1, K)
-        x = x.permute(0, 3, 2, 1)  # (N, K, 1, T)
-        x = super(SpatialDropout, self).forward(x)  # (N, K, 1, T), some features are masked
-        x = x.permute(0, 3, 2, 1)  # (N, T, 1, K)
-        x = x.squeeze(2)  # (N, T, K)
-        return x
 
 class StudyImgNet(nn.Module):
     def __init__(self, encoder = 'mixnet_m', dropout = 0.2, 
