@@ -27,7 +27,7 @@ class RSNASequenceDataset(Dataset):
     def __init__(self, 
                  datadf,
                  embimgmat,
-                 embexmmat,
+                 # embexmmat,
                  folddf,
                  mode="train", 
                  fold = 0, 
@@ -55,7 +55,7 @@ class RSNASequenceDataset(Dataset):
         self.label_smoothing = label_smoothing
         self.labeltype = labeltype
         self.embimgmat = embimgmat
-        self.embexmmat = embexmmat
+        #self.embexmmat = embexmmat
         self.label = label
 
     def __len__(self):
@@ -69,8 +69,9 @@ class RSNASequenceDataset(Dataset):
         embidx = self.datadf.index == studyidx
         #studyimgemb = self.embimgmat[embidx]
         #studyexmemb = self.embexmmat[embidx]
-        studyemb = np.concatenate((self.embimgmat[embidx],
-                                   self.embexmmat[embidx]),1)
+        #studyemb = np.concatenate((self.embimgmat[embidx],
+        #                           self.embexmmat[embidx]),1)
+        studyemb = self.embimgmat[embidx]
         imgnames  = studydf.SOPInstanceUID.values
         
         out = {'emb': studyemb, 

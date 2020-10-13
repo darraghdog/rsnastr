@@ -9,8 +9,12 @@ import sys
 import itertools
 from collections import defaultdict, OrderedDict
 import platform
-PATH = '/Users/dhanley/Documents/rsnastr'         if platform.system() == 'Darwin' else '/data/rsnastr'
-os.chdir(PATH)
+try:
+    PATH = '/Users/dhanley/Documents/rsnastr'         if platform.system() == 'Darwin' else '/data/rsnastr'
+    os.chdir(PATH)
+except:
+    PATH = '/mount'
+    os.chdir(PATH)
 sys.path.append(PATH)
 import warnings
 warnings.filterwarnings("ignore")
