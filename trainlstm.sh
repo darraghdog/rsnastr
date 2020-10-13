@@ -1,5 +1,16 @@
-python training/pipeline/train_study_classifier.py --lr 0.0001   --label-smoothing 0.0 \
-        --device 'cuda' --fold 0 --batchsize 32 /
-        --embrgx 'weights/classifier_RSNAClassifier_tf_efficientnet_b5_ns_04d_*__fold*_best_dice__all_size320.emb'
+for FOLD in 0 1 2
+do
+    for DO in 0.01 0.03 0.05
+    do
+        python training/pipeline/train_study_classifier_v02.py \
+        --lr 0.00005 --dropout $DO --device 'cuda' --fold $FOLD --batchsize 32 --epochs 25 --lrgamma 0.98 \
+        --imgembrgx 'weights/classifier_RSNAClassifier_tf_efficientnet_b5_ns_04d_*__fold*_best_dice__all_size320.emb'
+    done
+done
+
+
+#python training/pipeline/train_study_classifier.py --lr 0.0001   --label-smoothing 0.0 \
+#        --device 'cuda' --fold 0 --batchsize 32 /
+#        --embrgx 'weights/classifier_RSNAClassifier_tf_efficientnet_b5_ns_04d_*__fold*_best_dice__all_size320.emb'
 
 # python training/pipeline/train_study_classifier.py --lr 0.01   --label-smoothing 0.0  --device 'cuda' --fold 0 --batchsize 4 --embrgx 'weights/classifier_RSNAClassifier_tf_efficientnet_b5_ns_04d_*__fold*_best_dice__hflip0_transpose0_size320.emb' 
