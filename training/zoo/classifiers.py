@@ -55,6 +55,10 @@ encoder_params = {
         "features": 2048,
         "init_op": partial(tf_efficientnet_b5_ns, pretrained=True, drop_path_rate=0.4)
     },
+    "tf_efficientnet_b5_ns_04d_infer": {
+        "features": 2048,
+        "init_op": partial(tf_efficientnet_b5_ns, pretrained=False, drop_path_rate=0.4)
+    },
     "tf_efficientnet_b6_ns": {
         "features": 2304,
         "init_op": partial(tf_efficientnet_b6_ns, pretrained=True, drop_path_rate=0.2)
