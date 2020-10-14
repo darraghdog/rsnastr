@@ -10,7 +10,7 @@ from collections import defaultdict, OrderedDict
 import platform
 import glob
 PATH = '/Users/dhanley/Documents/rsnastr' \
-        if platform.system() == 'Darwin' else '/data/rsnastr'
+        if platform.system() == 'Darwin' else '/mount'
 os.chdir(PATH)
 sys.path.append(PATH)
 import warnings

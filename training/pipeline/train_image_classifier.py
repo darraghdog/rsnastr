@@ -7,7 +7,7 @@ import itertools
 from collections import defaultdict, OrderedDict
 import platform
 PATH = '/Users/dhanley/Documents/rsnastr' \
-        if platform.system() == 'Darwin' else '/data/rsnastr' # '/mount'
+        if platform.system() == 'Darwin' else '/mount'
 os.chdir(PATH)
 sys.path.append(PATH)
 import warnings
@@ -102,7 +102,7 @@ Image.fromarray(img)
 # Try using imagenet means
 def create_train_transforms_binary(size=300, distort = False):
     return A.Compose([
-        A.HorizontalFlip(p=0.5),   # right/left
+        #A.HorizontalFlip(p=0.5),   # right/left
         A.VerticalFlip(p=0.5),
         A.ShiftScaleRotate(shift_limit=0.02, scale_limit=0.02, value = 0,
                              rotate_limit=20, p=0.5, border_mode = cv2.BORDER_CONSTANT),
@@ -348,12 +348,12 @@ for epoch in range(start_epoch, max_epochs):
                     'epoch': current_epoch + 1,
                     'state_dict': model.state_dict(),
                     'bce_best': bce,
-                }, args.output_dir + snapshot_name + f"_fold{args.fold}_best_dice_all")
+                }, args.output_dir + snapshot_name + f"_size{conf['size']}_fold{args.fold}_best_dice_all")
             bce_best = bce
         print("Epoch: {} bce: {:.5f}, bce_best: {:.5f}".format(current_epoch, bce, bce_best))
     torch.save({
         'epoch': current_epoch + 1,
         'state_dict': model.state_dict(),
         'bce_best': bce,
-        }, args.output_dir + snapshot_name + f"_nclasses{nclasses}_fold{args.fold}_epoch{current_epoch}")
+        }, args.output_dir + snapshot_name + f"_nclasses{nclasses}_size{conf['size']}_fold{args.fold}_epoch{current_epoch}")
     current_epoch += 1

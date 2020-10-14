@@ -304,12 +304,12 @@ for epoch in range(args.epochs):
         valexmloss   += exam_loss.item()
         valexmwts    += label_w.sum().item()
         final_val_loss = valloss/valwts
-        pbar.set_postfix({'valid loss': final_trn_loss,
-                          'image loss': (valimgloss/trnimgwts) if valimgloss>0 else 0,
+        pbarval.set_postfix({'valid loss': final_val_loss,
+                          'image loss': (valimgloss/valimgwts) if valimgloss>0 else 0,
                           'exam loss': valexmloss/valexmwts})
         del x, y, outimg, outexm
         torch.cuda.empty_cache()
-    logger.info(f'Epoch {epoch} valid loss all {final_val_loss:.4f}')
+    logger.info(f'Epoch {epoch} valid loss all {final_val_loss:.4f} image {valimgloss/valimgwts} exam {valexmloss/valexmwts}')
 
 
 # In[ ]:
