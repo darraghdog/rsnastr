@@ -118,7 +118,6 @@ encoder_params = {
 }
 
 
-encoder = encoder_params["resnest269e"]["init_op"]()
 
 class GlobalWeightedAvgPool2d(nn.Module):
     """
