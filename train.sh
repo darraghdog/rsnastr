@@ -1,5 +1,11 @@
-python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --accum 4 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/effnetb5_lr1e4_binary.json'
+for FOLD in 0 1 2 4 3 
+do
+    python training/pipeline/train_image_classifier.py --device 'cuda' --fold $FOLD --batchsize 32 --logdir 'logs/zoo' --augextra False --label-smoothing 0.0 --config 'configs/512/effnetb7_lr5e4_binary.json' 
+done
 
+: '
+python training/pipeline/train_image_classifier.py --device 'cuda' --fold 0 --accum 4 --batchsize 32 --logdir 'logs/zoo' --augextra False  --label-smoothing 0.01 --config 'configs/effnetb5_lr1e4_binary.json'
+'
 
 : '
 for FOLD in 0 1 2 4 # 3 
