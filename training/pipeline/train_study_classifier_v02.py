@@ -144,9 +144,20 @@ valloader = DataLoader(valdataset, batch_size=args.batchsize, shuffle=False, num
 embed_size = embmat.shape[1]
 gc.collect()
 
+chkloader = DataLoader(valdataset, batch_size=1, shuffle=False, num_workers=1, collate_fn=collateseqfn)
+chkbatch = next(iter(chkloader))
+logger.info('Weights')
+logger.info(embname)
+logger.info('Embeddings')
+logger.info(chkbatch['emb'])
+logger.info('Mask')
+logger.info(chkbatch['mask'])
+logger.info('Img name')
+logger.info(chkbatch['img_name'])
+logger.info('Study Name')
+logger.info(chkbatch['study_name'])
 
 # In[11]:
-
 
 logger.info('Create model')
 model = LSTMNet(embed_size, 
@@ -294,6 +305,4 @@ for epoch in range(args.epochs):
         torch.save(model.state_dict(), output_model_file)
         best_val_loss=val_loss
         logger.info(f'Best Epoch {epoch} val loss all {best_val_loss:.4f}')
-        
-
 
