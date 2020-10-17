@@ -2,9 +2,9 @@
 EPOCH=20
 FOLD=0
 DO=0.0
-for FOLD in 1 2 3 4 # 0
+for FOLD in 0 1 2 3 4 
 do
-    WEIGHTS='weights/classifier_RSNAClassifier_tf_efficientnet_b5_ns_04d_*__nclasses1_fold*_epoch'$EPOCH'__all_size512.emb'
+    WEIGHTS='weights/classifier_RSNAClassifier_tf_efficientnet_b5_ns_04d_'$FOLD'__nclasses1_fold'$FOLD'_epoch'$EPOCH'__all_size512.emb'
     python training/pipeline/train_study_classifier_v02.py \
         --lr 0.00005 --dropout $DO --device 'cuda' --fold $FOLD --batchsize 32 --epochs 25 --lrgamma 0.98 \
         --imgembrgx $WEIGHTS

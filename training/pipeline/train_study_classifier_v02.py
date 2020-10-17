@@ -95,11 +95,12 @@ args = parser.parse_args()
 def takeimg(s):
     return s.split('/')[-1].replace('.jpg', '')
 fimg = sorted(glob.glob(f'emb/{args.imgembrgx}*data.pk'))[0]
+logger.info(f'Loading : {fimg}')
 dfname, embname, imgnm = fimg, fimg.replace('.data.pk', '.npz'), fimg.replace('.data.pk', '.imgnames.pk')
 imgls = list(map(takeimg, pickle.load( open( imgnm, "rb" ) )))
 wtsname = embname.split('/')[-1].replace('.emb.npz', '')
 embmat = np.load(embname)['arr_0']
-
+logger.info(f'Weights : {wtsname}')
 
 # In[6]:
 
@@ -143,7 +144,7 @@ logger.info('Create loaders...')
 valloader = DataLoader(valdataset, batch_size=args.batchsize, shuffle=False, num_workers=4, collate_fn=collateseqfn)
 embed_size = embmat.shape[1]
 gc.collect()
-
+'''
 chkloader = DataLoader(valdataset, batch_size=1, shuffle=False, num_workers=1, collate_fn=collateseqfn)
 chkbatch = next(iter(chkloader))
 logger.info('Weights')
@@ -156,7 +157,7 @@ logger.info('Img name')
 logger.info(chkbatch['img_name'])
 logger.info('Study Name')
 logger.info(chkbatch['study_name'])
-
+'''
 # In[11]:
 
 logger.info('Create model')
