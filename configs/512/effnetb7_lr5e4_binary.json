@@ -1,6 +1,6 @@
 {
     "network": "RSNAClassifier",
-    "encoder": "tf_efficientnet_b7_ns_04d",
+    "encoder": "tf_efficientnet_b7_ns",
     "batches_per_epoch": 500,
     "size": 512,
     "classes": ["pe_present_on_image"],
