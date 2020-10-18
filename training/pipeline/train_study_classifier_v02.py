@@ -78,6 +78,7 @@ arg('--nclasses', type=str, default=1)
 arg('--crops-dir', type=str, default='jpegip')
 arg('--lstm_units',   type=int, default=512)
 arg('--epochs',   type=int, default=12)
+arg("--delta", default=False, type=lambda x: (str(x).lower() == 'true'))
 arg('--nbags',   type=int, default=12)
 arg('--label-smoothing', type=float, default=0.00)
 arg('--logdir', type=str, default='logs/b2_1820')
@@ -85,6 +86,7 @@ arg("--local_rank", default=0, type=int)
 arg("--seed", default=777, type=int)
 arg("--imgembrgx", type=str, default='')
 args = parser.parse_args()
+
 
 
 # In[3]:
@@ -114,11 +116,13 @@ folddf = pd.read_csv(f'{args.data_dir}/{args.folds_csv}')
 
 
 logger.info('Create traindatasets')
+logger.info(f'Embedding delta : {args.delta}')
 trndataset = RSNASequenceDataset(datadf, 
                                    embmat, 
                                    #embexmmat, 
                                    folddf,
                                    mode="train",
+                                   delta=args.delta,
                                    imgclasses=CFG["image_target_cols"],
                                    studyclasses=CFG['exam_target_cols'],
                                    fold=args.fold,
@@ -130,6 +134,7 @@ valdataset = RSNASequenceDataset(datadf,
                                    #embexmmat,
                                    folddf,
                                    mode="valid",
+                                   delta=args.delta,
                                    imgclasses=CFG["image_target_cols"],
                                    studyclasses=CFG['exam_target_cols'],
                                    fold=args.fold,
@@ -143,6 +148,8 @@ valdataset = RSNASequenceDataset(datadf,
 logger.info('Create loaders...')
 valloader = DataLoader(valdataset, batch_size=args.batchsize, shuffle=False, num_workers=4, collate_fn=collateseqfn)
 embed_size = embmat.shape[1]
+if self.delta:
+    embed_size = embed_size * 3
 gc.collect()
 '''
 chkloader = DataLoader(valdataset, batch_size=1, shuffle=False, num_workers=1, collate_fn=collateseqfn)
@@ -271,7 +278,8 @@ for epoch in range(args.epochs):
             torch.cuda.empty_cache()  
 
     #logger.info(f'Epoch {epoch} train loss all {trnres.loss/trnres.wts:.4f}')
-    output_model_file = f'weights/exam_lstm_{wtsname}__epoch{epoch}.bin'
+    deltamsg = '_delta' if self.delta else ''
+    output_model_file = f'weights/exam_lstm_{wtsname}{deltamsg}__epoch{epoch}.bin'
     torch.save(model.state_dict(), output_model_file)
     
     scheduler.step()
@@ -302,7 +310,7 @@ for epoch in range(args.epochs):
                           'exam loss': valres.exmloss/valres.exmwts})
     val_loss = valres.loss/valres.wts
     if best_val_loss>val_loss:
-        output_model_file = f'weights/exam_lstm_{wtsname}__epoch{epoch}.bin'
+        output_model_file = f'weights/exam_lstm_{wtsname}{deltamsg}__epoch{epoch}.bin'
         torch.save(model.state_dict(), output_model_file)
         best_val_loss=val_loss
         logger.info(f'Best Epoch {epoch} val loss all {best_val_loss:.4f}')
