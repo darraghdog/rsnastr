@@ -243,10 +243,11 @@ for epoch in range(start_epoch, max_epochs):
         # logger.info(f'Mean {imgs.mean()} std {imgs.std()} ')
         labels = sample["labels"].to(args.device).float()
         mask = sample["labels"][:,0]
+        logger.info(mask.mean())
         if conf['fp16'] and args.device != 'cpu':
             with autocast():
                 out = model(imgs)
-                imgloss = imgcriterion(out[:,0], labels[:,0]) 
+                imgloss = imgcriterion(out[:,:1], labels[:,:1]) 
                 examloss = examcriterion(out[:,1:], labels[:,1:]) 
                 # Mask the loss of the multi classes
                 examloss = (examloss.sum(1)[mask>=0.5]).mean()
