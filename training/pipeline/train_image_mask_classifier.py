@@ -211,7 +211,7 @@ for epoch in range(start_epoch, max_epochs):
     logger.info(f'Valid class balance:\n{valcts}')
     trnloader = DataLoader(trndataset, batch_size=args.batchsize, sampler = trnsampler, **loaderargs)
     model.train()
-    pbar = tqdm(enumerate(trnloader), total=max_iters, desc="Epoch {}".format(current_epoch), ncols=0)
+    pbar = tqdm(enumerate(trnloader), total=len(trnloader), desc="Epoch {}".format(current_epoch), ncols=0)
     if conf["optimizer"]["schedule"]["mode"] == "current_epoch":
         scheduler.step(current_epoch)
     for i, sample in pbar:
@@ -268,60 +268,35 @@ for epoch in range(start_epoch, max_epochs):
     '''
     Validate
     '''
-    
-    val = defaultdict(list)
-    with torch.no_grad():
-        for i, sample in tqdm(enumerate(valloader)):
-            imgs = sample["image"].to(args.device)
-            val['img_names'] += sample["img_name"]
-            val['targets'] += sample["labels"].tolist()
-            val['studype'] += sample['studype'].tolist()
+    tot_exam_loss = 0.
+    tot_img_loss = 0.
+    losses = AverageMeter()
+    pbar = tqdm(enumerate(valloader), total=len(valloader), desc="Epoch valid {}".format(current_epoch), ncols=0)
+    for i, sample in pbar:
+        imgs = sample["image"].to(args.device)
+        labels = sample["labels"].to(args.device).float()
+        mask = sample["labels"][:,0]
+        with torch.no_grad():
             out = model(imgs)
-            preds = torch.sigmoid(out).detach().cpu().numpy()
-            val['probs'].append(preds)
-    val['probs'] = np.concatenate(val['probs'], 0)
-    val['targets'] = np.array(val['targets']).round()*1.
-    val['studype'] = np.array(val['studype']).round()
-    val['negimg_idx'] = ((val['targets'][:,0] < 0.5) & (val['studype'] > 0.5)).flatten()
-    val['posimg_idx'] = ((val['targets'][:,0] > 0.5) & (val['studype'] > 0.5)).flatten()
-    val['negstd_idx'] = ((val['targets'][:,0] < 0.5) & (val['studype'] < 0.5)).flatten()
-    ycols = conf['image_target_cols']+conf['exam_target_cols']
-    ywts = [conf['image_weight']] + conf['exam_weights']
-    idxs = ['negimg_idx', 'posimg_idx', 'negstd_idx']
-    bce_val = torch.nn.BCELoss(reduction='mean')
-    valcriterion = torch.nn.BCEWithLogitsLoss(reduction='mean', 
-                                              weight = bce_wts.to('cpu'))
-    outtmp = torch.tensor(val['probs'])
-    ytmp = torch.tensor(val['targets']*1.)
-    bce = valcriterion(outtmp, ytmp)
-    for idx in idxs:
-        outtmp = torch.tensor(val['probs'][val[idx], :])
-        ytmp = torch.tensor(val['targets'][val[idx], :]).float()
-        lossvaltmp = bce_val(outtmp, ytmp)
-        logger.info(f'idx {idx} loss {lossvaltmp:.3f}')
-    print(50*'--')
-    for i, (col, wt) in enumerate(zip(ycols, ywts)):
-        idx = 'posimg_idx'
-        outtmp = torch.tensor(val['probs'][val[idx], i])
-        ytmp = torch.tensor(val['targets'][val[idx], i]).float()
-        lossvaltmp = bce_val(outtmp, ytmp)
-        logger.info(f'Type {col} '.ljust(27)+f'wt {wt:.3f} idx {idx} loss {lossvaltmp:.3f}')
-    print(50*'--')
-    for idx in idxs:
-        col = conf['image_target_cols'][0]
-        wt = conf['image_weight']
-        outtmp = torch.tensor(val['probs'][val[idx], :])
-        ytmp = torch.tensor(val['targets'][val[idx], :]).float()
-        lossvaltmp = bce_val(outtmp, ytmp)
-        logger.info(f'Type {col} '.ljust(27)+f'idx {idx} loss {lossvaltmp:.3f}')
-    print(50*'--')   
+            imgloss = imgcriterion(out[:,:1], labels[:,:1]) 
+            examloss = examcriterion(out[:,1:], labels[:,1:]) 
+            # Mask the loss of the multi classes
+            examloss = (examloss.sum(1)[mask>=0.5]).mean()
+        loss = imgloss + examloss
+    losses.update(loss.item(), imgs.size(0))
+    tot_img_loss += imgloss.item()
+    tot_exam_loss += examloss.item()
+    pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, 
+                      "loss": losses.avg, 
+                      "loss_exam": tot_exam_loss / (i+1), 
+                      "loss_img": tot_img_loss / (i+1)})
     
     '''
     Save the model
     '''
 
     if args.local_rank == 0:
-        if bce < bce_best:
+        if losses.avg < bce_best:
             print("Epoch {} improved from {:.5f} to {:.5f}".format(current_epoch, bce_best, bce))
             if args.output_dir is not None:
                 torch.save({
