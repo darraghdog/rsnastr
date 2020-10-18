@@ -145,7 +145,6 @@ valsampler = nSampler(valdataset.data,
                           seed = None)
 
 logger.info(50*'-')
-logger.info(valdataset.data.loc[valsampler.sampler]['pe_present_on_image'].value_counts())
 loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': False, 'collate_fn' : collatefn}
 valloader = DataLoader(valdataset, batch_size=args.batchsize, sampler = valsampler, **loaderargs)
 
