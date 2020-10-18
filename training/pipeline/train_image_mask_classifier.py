@@ -273,8 +273,8 @@ for epoch in range(start_epoch, max_epochs):
     tot_exam_loss = 0.
     tot_img_loss = 0.
     losses = AverageMeter()
-    pbar = tqdm(enumerate(valloader), total=len(valloader), desc="Epoch valid {}".format(current_epoch), ncols=0)
-    for i, sample in pbar:
+    pbarval = tqdm(enumerate(valloader), total=len(valloader), desc="Epoch valid {}".format(current_epoch), ncols=0)
+    for i, sample in pbarval:
         imgs = sample["image"].to(args.device)
         labels = sample["labels"].to(args.device).float()
         mask = sample["labels"][:,0]
@@ -288,7 +288,7 @@ for epoch in range(start_epoch, max_epochs):
         losses.update(loss.item(), imgs.size(0))
         tot_img_loss += imgloss.item()
         tot_exam_loss += examloss.item()
-        pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, 
+        pbarval.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, 
                           "loss": losses.avg, 
                           "loss_exam": tot_exam_loss / (i+1), 
                           "loss_img": tot_img_loss / (i+1)})
