@@ -122,7 +122,7 @@ trndataset = RSNAClassifierDataset(mode="train",\
                                        data_path=args.data_dir,\
                                        label_smoothing=args.label_smoothing,\
                                        folds_csv=args.folds_csv,\
-                                       transforms=create_train_transforms_binary(conf['size']))
+                                       transforms=create_train_transforms(conf['size']))
 logger.info('Create valdatasets')
 valdataset = RSNAClassifierDataset(mode="valid",
                                     fold=args.fold,
