@@ -86,9 +86,10 @@ if False:
     args.config = 'configs/rnxt101_binary.json'
     args.config = 'configs/512/effnetb5_lr5e4_multi.json'
 conf = load_config(args.config)
+logger.info(conf)
 
 # Try using imagenet means
-def create_train_transforms_binary(size=300, distort = False):
+def create_train_transforms(size=300, distort = False):
     return A.Compose([
         #A.HorizontalFlip(p=0.5),   # right/left
         A.VerticalFlip(p=0.5),
@@ -98,20 +99,6 @@ def create_train_transforms_binary(size=300, distort = False):
         #A.Transpose(p=0.5), # swing in -90 degrees
         A.Resize(size, size, p=1),
         A.Normalize(mean=conf['normalize']['mean'],
-                    std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
-        ToTensor()
-        ])
-
-def create_train_transforms_multi(size=300, distort = False):
-    return A.Compose([
-        #A.HorizontalFlip(p=0.5),   # right/left
-        #A.VerticalFlip(p=0.5), 
-        A.ShiftScaleRotate(shift_limit=0.02, scale_limit=0.02, value = 0,
-                                 rotate_limit=10, p=0.5, border_mode = cv2.BORDER_CONSTANT),
-        # A.Cutout(num_holes=40, max_h_size=size//7, max_w_size=size//7, fill_value=128, p=0.5), 
-        #A.Transpose(p=0.5), # swing in -90 degrees
-        A.Resize(size, size, p=1), 
-        A.Normalize(mean=conf['normalize']['mean'], 
                     std=conf['normalize']['std'], max_pixel_value=255.0, p=1.0),
         ToTensor()
         ])
@@ -135,9 +122,7 @@ trndataset = RSNAClassifierDataset(mode="train",\
                                        data_path=args.data_dir,\
                                        label_smoothing=args.label_smoothing,\
                                        folds_csv=args.folds_csv,\
-                                       transforms=create_train_transforms_multi(conf['size'])\
-                                           if len(conf['exam_target_cols'])>0 else \
-                                           create_train_transforms_binary(conf['size']))
+                                       transforms=create_train_transforms_binary(conf['size']))
 logger.info('Create valdatasets')
 valdataset = RSNAClassifierDataset(mode="valid",
                                     fold=args.fold,
@@ -149,7 +134,8 @@ valdataset = RSNAClassifierDataset(mode="valid",
                                     folds_csv=args.folds_csv,
                                     transforms=create_val_transforms(conf['size']))
 
-examlevel =  len(conf['exam_weights']) > 0
+
+examlevel =  False # len(conf['exam_weights']) > 0
 logger.info(f"Use {'EXAM' if examlevel else 'IMAGE'} level valid sampler")
 valsampler = valSeedSampler(valdataset.data, 
                             examlevel = examlevel,
@@ -196,14 +182,12 @@ logger.info('Start training')
 epoch_img_names = defaultdict(list)
 
 
+
 seenratio=0  # Ratio of seen in images in previous epochs
 
-'''
-alldf = pd.read_csv('data/train.csv.zip')
-allsampler = nSampler(alldf, pe_weight = 0.66, nmin = 2, nmax = 4, seed = None)
-len(allsampler.sample(alldf)) * 0.8
-'''
-seenratio=0  # Ratio of seen in images in previous epochs
+for batch in trnloader:
+    break
+
 
 for epoch in range(start_epoch, max_epochs):
     '''

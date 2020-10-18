@@ -338,7 +338,6 @@ class RSNAClassifierDataset(Dataset):
                 img = augmented['image']   
             if self.mode in ['train', 'valid', 'all']:
                 label = self.data.loc[idx, self.imgclasses + self.studyclasses]
-                print(label)
                 if self.mode == 'train': 
                     label = np.clip(label, self.label_smoothing, 1 - self.label_smoothing)
                 label = torch.tensor(label)
@@ -423,24 +422,6 @@ class nSampler(Sampler):
         return len(self.sampler)
     
     def sample(self, data):
-        # Only examlevel
-        if self.examlevel:
-            # Only take negative exams and positinve images
-            # Leave off the fuzzy examples
-            posdf = self.data.query('pe_present_on_image == 1').sample(frac=1)
-            negdf = self.data.query('negative_exam_for_pe == 1').sample(frac=1)
-            negdf = negdf[:int(posdf.shape[0]*self.pe_weight)]
-            self.data = pd.concat([posdf, negdf])
-            '''
-            self.data = self.data.query('pe_present_on_image == 1') \
-                    .sample(frac= 1, random_state=self.seed) \
-                    .groupby("StudyInstanceUID") \
-                    .head(self.nmax)
-            '''
-            samp = self.data.index.tolist()
-            print('Sampled base data pe present')
-            print(self.data.pe_present_on_image.value_counts())
-            return samp
         # Sample from all studies
         allsamp = self.data.sample(frac= 1, 
                                 random_state=self.seed) \
