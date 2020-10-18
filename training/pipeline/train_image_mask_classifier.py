@@ -243,7 +243,7 @@ for epoch in range(start_epoch, max_epochs):
         # logger.info(f'Mean {imgs.mean()} std {imgs.std()} ')
         labels = sample["labels"].to(args.device).float()
         mask = sample["labels"][:,0]
-        logger.info(mask.float().mean())
+        logger.info(labels)
         if conf['fp16'] and args.device != 'cpu':
             with autocast():
                 out = model(imgs)
