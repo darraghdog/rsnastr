@@ -267,8 +267,8 @@ for epoch in range(start_epoch, max_epochs):
         tot_exam_loss += examloss.item()
         pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, 
                           "loss": losses.avg, 
-                          "loss_exam": tot_exam_loss / i, 
-                          "loss_img": tot_img_loss / i, 
+                          "loss_exam": tot_exam_loss / (i+1), 
+                          "loss_img": tot_img_loss / (i+1), 
                           'seen_prev': seenratio })
         
         if conf["optimizer"]["schedule"]["mode"] in ("step", "poly"):
