@@ -297,9 +297,9 @@ for epoch in range(start_epoch, max_epochs):
     '''
     Save the model
     '''
-
+    bce = losses.avg
     if args.local_rank == 0:
-        if losses.avg < bce_best:
+        if bce < bce_best:
             print("Epoch {} improved from {:.5f} to {:.5f}".format(current_epoch, bce_best, bce))
             if args.output_dir is not None:
                 torch.save({
