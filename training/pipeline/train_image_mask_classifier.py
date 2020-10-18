@@ -217,6 +217,8 @@ for epoch in range(start_epoch, max_epochs):
     ep_samps={'tot':0,'pos':0}
     losses = AverageMeter()
     max_iters = conf["batches_per_epoch"]
+    tot_exam_loss = 0.
+    tot_img_loss = 0.
     logger.info(f"Use {'EXAM' if examlevel else 'IMAGE'} level train sampler")
     trnsampler = nSampler(trndataset.data, 
                           examlevel = examlevel,
@@ -261,8 +263,13 @@ for epoch in range(start_epoch, max_epochs):
             optimizer.step()
             optimizer.zero_grad()
         losses.update(loss.item(), imgs.size(0))
+        tot_img_loss += imgloss 
+        tot_exam_loss += examloss 
         pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, 
-                          "loss": losses.avg, 'seen_prev': seenratio })
+                          "loss": losses.avg, 
+                          "loss_exam": tot_exam_loss / i, 
+                          "loss_img": tot_img_loss / i, 
+                          'seen_prev': seenratio })
         
         if conf["optimizer"]["schedule"]["mode"] in ("step", "poly"):
             scheduler.step(i + current_epoch * max_iters)
