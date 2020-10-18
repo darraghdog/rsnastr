@@ -338,7 +338,7 @@ class RSNAClassifierDataset(Dataset):
                 img = augmented['image']   
             if self.mode in ['train', 'valid', 'all']:
                 label = self.data.loc[idx, self.imgclasses + self.studyclasses]
-                
+                print(label)
                 if self.mode == 'train': 
                     label = np.clip(label, self.label_smoothing, 1 - self.label_smoothing)
                 label = torch.tensor(label)
