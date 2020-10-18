@@ -263,8 +263,8 @@ for epoch in range(start_epoch, max_epochs):
             optimizer.step()
             optimizer.zero_grad()
         losses.update(loss.item(), imgs.size(0))
-        tot_img_loss += imgloss 
-        tot_exam_loss += examloss 
+        tot_img_loss += imgloss.item()
+        tot_exam_loss += examloss.item()
         pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, 
                           "loss": losses.avg, 
                           "loss_exam": tot_exam_loss / i, 
