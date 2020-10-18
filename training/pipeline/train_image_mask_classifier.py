@@ -180,13 +180,7 @@ max_epochs = conf['optimizer']['schedule']['epochs']
 
 logger.info('Start training')
 epoch_img_names = defaultdict(list)
-
-
-
 seenratio=0  # Ratio of seen in images in previous epochs
-
-for batch in trnloader:
-    break
 
 
 for epoch in range(start_epoch, max_epochs):
