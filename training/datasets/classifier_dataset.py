@@ -30,6 +30,7 @@ class RSNASequenceDataset(Dataset):
                  # embexmmat,
                  folddf,
                  mode="train", 
+                 delta=False,
                  fold = 0, 
                  labeltype='all', 
                  label = True,
@@ -57,6 +58,7 @@ class RSNASequenceDataset(Dataset):
         self.embimgmat = embimgmat
         #self.embexmmat = embexmmat
         self.label = label
+        self.delta = delta
 
     def __len__(self):
         return len(self.folddf)
@@ -67,11 +69,22 @@ class RSNASequenceDataset(Dataset):
         seriesidx = self.folddf.iloc[idx].SeriesInstanceUID
         studydf = self.datadf.loc[studyidx].query('SeriesInstanceUID == @seriesidx')
         embidx = self.datadf.index == studyidx
+
         #studyimgemb = self.embimgmat[embidx]
         #studyexmemb = self.embexmmat[embidx]
         #studyemb = np.concatenate((self.embimgmat[embidx],
         #                           self.embexmmat[embidx]),1)
         studyemb = self.embimgmat[embidx]
+        
+        logger.info(studyemb.shape)
+        if self.delta:
+            studydeltalag  = np.zeros(studyemb.shape)
+            studydeltalead = np.zeros(studyemb.shape)
+            studydeltalag [1:] = studyemb[1:]-studyemb[:-1]
+            studydeltalead[:-1] = studyemb[:-1]-studyemb[1:]
+            studyemb = np.concatenate((studyemb, studydeltalag, studydeltalead), -1)
+            logger.info(studyemb.shape)
+        
         imgnames  = studydf.SOPInstanceUID.values
         
         out = {'emb': studyemb, 
