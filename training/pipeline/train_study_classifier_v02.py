@@ -148,7 +148,7 @@ valdataset = RSNASequenceDataset(datadf,
 logger.info('Create loaders...')
 valloader = DataLoader(valdataset, batch_size=args.batchsize, shuffle=False, num_workers=4, collate_fn=collateseqfn)
 embed_size = embmat.shape[1]
-if self.delta:
+if args.delta:
     embed_size = embed_size * 3
 gc.collect()
 '''
@@ -278,7 +278,7 @@ for epoch in range(args.epochs):
             torch.cuda.empty_cache()  
 
     #logger.info(f'Epoch {epoch} train loss all {trnres.loss/trnres.wts:.4f}')
-    deltamsg = '_delta' if self.delta else ''
+    deltamsg = '_delta' if args.delta else ''
     output_model_file = f'weights/exam_lstm_{wtsname}{deltamsg}__epoch{epoch}.bin'
     torch.save(model.state_dict(), output_model_file)
     

@@ -76,14 +76,12 @@ class RSNASequenceDataset(Dataset):
         #                           self.embexmmat[embidx]),1)
         studyemb = self.embimgmat[embidx]
         
-        logger.info(studyemb.shape)
         if self.delta:
             studydeltalag  = np.zeros(studyemb.shape)
             studydeltalead = np.zeros(studyemb.shape)
             studydeltalag [1:] = studyemb[1:]-studyemb[:-1]
             studydeltalead[:-1] = studyemb[:-1]-studyemb[1:]
             studyemb = np.concatenate((studyemb, studydeltalag, studydeltalead), -1)
-            logger.info(studyemb.shape)
         
         imgnames  = studydf.SOPInstanceUID.values
         
