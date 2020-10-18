@@ -137,10 +137,13 @@ valdataset = RSNAClassifierDataset(mode="valid",
 
 examlevel =  False # len(conf['exam_weights']) > 0
 logger.info(f"Use {'EXAM' if examlevel else 'IMAGE'} level valid sampler")
-valsampler = valSeedSampler(valdataset.data, 
-                            examlevel = examlevel,
-                            N = 5000, 
-                            seed = args.seed)
+valsampler = nSampler(valdataset.data, 
+                          examlevel = examlevel,
+                          pe_weight = conf['pe_ratio'], 
+                          nmin = conf['studynmin'], 
+                          nmax = conf['studynmax'], 
+                          seed = None)
+
 logger.info(50*'-')
 logger.info(valdataset.data.loc[valsampler.sampler]['pe_present_on_image'].value_counts())
 loaderargs = {'num_workers' : 8, 'pin_memory': False, 'drop_last': False, 'collate_fn' : collatefn}
@@ -283,14 +286,14 @@ for epoch in range(start_epoch, max_epochs):
             # Mask the loss of the multi classes
             examloss = (examloss.sum(1)[mask>=0.5]).mean()
         loss = imgloss + examloss
-    losses.update(loss.item(), imgs.size(0))
-    tot_img_loss += imgloss.item()
-    tot_exam_loss += examloss.item()
-    pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, 
-                      "loss": losses.avg, 
-                      "loss_exam": tot_exam_loss / (i+1), 
-                      "loss_img": tot_img_loss / (i+1)})
-    
+        losses.update(loss.item(), imgs.size(0))
+        tot_img_loss += imgloss.item()
+        tot_exam_loss += examloss.item()
+        pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, 
+                          "loss": losses.avg, 
+                          "loss_exam": tot_exam_loss / (i+1), 
+                          "loss_img": tot_img_loss / (i+1)})
+        
     '''
     Save the model
     '''
