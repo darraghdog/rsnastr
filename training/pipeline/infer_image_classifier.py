@@ -124,8 +124,9 @@ if args.emb:
     for f in weightfiles:
         logger.info(f'Infer {f}')
         if args.type=='image':
+            nclasses = len(conf['image_target_cols']) + len(conf['exam_target_cols'] )
             model = classifiers.__dict__[conf['network']](encoder=conf['encoder'], \
-                                                  nclasses = len(conf['classes']),
+                                                  nclasses = nclasses,
                                                   infer=True)
             checkpoint = torch.load(f, map_location=torch.device(args.device))
             model.load_state_dict(checkpoint['state_dict'])
