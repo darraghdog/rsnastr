@@ -1,6 +1,6 @@
 FOLD=0
 EPOCH=20
-for FOLD in 0 1 2 3 4
+for FOLD in 1 2 # 3 4 0
 do
     WEIGHTS="classifier_RSNAClassifier_tf_efficientnet_b5_ns_04d_"$FOLD"__nclasses10_size512_fold"$FOLD"_epoch"$EPOCH
     python training/pipeline/infer_image_classifier.py --device 'cuda' --fold $FOLD --batchsize 192 \
