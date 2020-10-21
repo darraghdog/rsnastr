@@ -1,6 +1,6 @@
 {
     "network": "RSNAClassifier",
-    "encoder": "tf_efficientnet_b5_ns_04d",
+    "encoder": "tf_efficientnet_b7_ns",
     "batches_per_epoch": 500,
     "size": 512,
     "classes": ["pe_present_on_image"],
@@ -14,7 +14,7 @@
         "schedule": {
             "type": "steplr",
             "mode": "step",
-            "epochs": 31,
+            "epochs": 41,
             "params": {"step_size": 500, "gamma": 0.99}
         }
     },

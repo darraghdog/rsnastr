@@ -78,7 +78,9 @@ arg("--seed", default=777, type=int)
 arg("--opt-level", default='O1', type=str)
 arg("--test_every", type=int, default=1)
 arg('--from-zero', action='store_true', default=False)
+arg('--flip', type=str, default=False)
 args = parser.parse_args()
+args.flip = args.flip=='True'
 
 if False:
     args.config = 'configs/b2.json'
@@ -114,6 +116,7 @@ def create_val_transforms(size=300, HFLIPVAL = 1.0, TRANSPOSEVAL = 1.0):
 
 logger.info('Create traindatasets')
 trndataset = RSNAClassifierDataset(mode="train",\
+                                       flip=args.flip,\
                                        fold=args.fold,\
                                        imgsize = conf['size'],\
                                        crops_dir=args.crops_dir,\
@@ -199,6 +202,7 @@ for epoch in range(start_epoch, max_epochs):
     max_iters = conf["batches_per_epoch"]
     tot_exam_loss = 0.
     tot_img_loss = 0.
+    skipped =  0
     logger.info(f"Use {'EXAM' if examlevel else 'IMAGE'} level train sampler")
     trnsampler = nSampler(trndataset.data, 
                           examlevel = examlevel,
@@ -229,8 +233,14 @@ for epoch in range(start_epoch, max_epochs):
                 imgloss = imgcriterion(out[:,:1], labels[:,:1]) 
                 examloss = examcriterion(out[:,1:], labels[:,1:]) 
                 # Mask the loss of the multi classes
-                examloss = (examloss.sum(1)[mask>=0.5]).mean()
-                loss = imgloss + examloss
+                if sum(mask>=0.5)>0:
+                    examloss = (examloss.sum(1)[mask>=0.5]).mean()
+                    loss = imgloss + examloss
+                else:
+                    skipped += 1 
+                    del imgloss, examloss, out
+                    continue
+                    
             scaler.scale(loss).backward()
             if (i % args.accum) == 0:
                 scaler.step(optimizer)
@@ -242,6 +252,7 @@ for epoch in range(start_epoch, max_epochs):
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
+        i -= skipped
         losses.update(loss.item(), imgs.size(0))
         tot_img_loss += imgloss.item()
         tot_exam_loss += examloss.item()
@@ -253,8 +264,10 @@ for epoch in range(start_epoch, max_epochs):
         
         if conf["optimizer"]["schedule"]["mode"] in ("step", "poly"):
             scheduler.step(i + current_epoch * max_iters)
-        if i == max_iters - 1:
-            break
+        if i%5==0:
+            del imgs, labels, mask
+            torch.cuda.empty_cache()
+
     pbar.close()
     if epoch > 0:
         seen = set(epoch_img_names[epoch]).intersection(
@@ -272,6 +285,7 @@ for epoch in range(start_epoch, max_epochs):
     '''
     tot_exam_loss = 0.
     tot_img_loss = 0.
+    skipped = 0
     losses = AverageMeter()
     pbarval = tqdm(enumerate(valloader), total=len(valloader), desc="Epoch valid {}".format(current_epoch), ncols=0)
     for i, sample in pbarval:
@@ -283,34 +297,33 @@ for epoch in range(start_epoch, max_epochs):
             imgloss = imgcriterion(out[:,:1], labels[:,:1]) 
             examloss = examcriterion(out[:,1:], labels[:,1:]) 
             # Mask the loss of the multi classes
-            examloss = (examloss.sum(1)[mask>=0.5]).mean()
-        loss = imgloss + examloss
+            if sum(mask>=0.5)>0:
+                examloss = (examloss.sum(1)[mask>=0.5]).mean()
+                loss = imgloss + examloss
+            else:
+                skipped += 1
+                del imgloss, examloss, out
+                continue
+        i -= skipped
         losses.update(loss.item(), imgs.size(0))
         tot_img_loss += imgloss.item()
-        tot_exam_loss += examloss.item()
+        if sum(mask>=0.5)>0: tot_exam_loss += examloss.item()
         pbarval.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, 
                           "loss": losses.avg, 
                           "loss_exam": tot_exam_loss / (i+1), 
                           "loss_img": tot_img_loss / (i+1)})
-        
+        if i%5==0: 
+            del imgs, labels, mask
+            torch.cuda.empty_cache()
+
     '''
     Save the model
     '''
     bce = losses.avg
-    if args.local_rank == 0:
-        if bce < bce_best:
-            print("Epoch {} improved from {:.5f} to {:.5f}".format(current_epoch, bce_best, bce))
-            if args.output_dir is not None:
-                torch.save({
-                    'epoch': current_epoch + 1,
-                    'state_dict': model.state_dict(),
-                    'bce_best': bce,
-                }, args.output_dir + snapshot_name + f"_size{conf['size']}_fold{args.fold}_best_dice_all")
-            bce_best = bce
-        print("Epoch: {} bce: {:.5f}, bce_best: {:.5f}".format(current_epoch, bce, bce_best))
+    print("Epoch: {} bce: {:.5f}, bce_best: {:.5f}".format(current_epoch, bce, bce_best))
     torch.save({
         'epoch': current_epoch + 1,
         'state_dict': model.state_dict(),
         'bce_best': bce,
-        }, args.output_dir + snapshot_name + f"_nclasses{nclasses}_size{conf['size']}_fold{args.fold}_epoch{current_epoch}")
+        }, args.output_dir + snapshot_name + f"_nclasses{nclasses}_size{conf['size']}_accum{args.accum}_fold{args.fold}_epoch{current_epoch}")
     current_epoch += 1
