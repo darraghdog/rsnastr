@@ -295,6 +295,7 @@ class RSNAClassifierDataset(Dataset):
     def __init__(self, 
                  transforms, 
                  mode="train", 
+                 flip = False,
                  fold = 0, 
                  labeltype='all', 
                  imgsize=512,
@@ -306,6 +307,7 @@ class RSNAClassifierDataset(Dataset):
                  folds_csv='folds.csv.gz'):
         self.mode = mode
         self.fold = fold
+        self.flip = flip
         self.fold_csv = folds_csv
         self.crops_dir = crops_dir
         self.imgclasses = imgclasses
@@ -330,6 +332,12 @@ class RSNAClassifierDataset(Dataset):
             # print(img_name)
             # img_name ='data/jpeg/train/31746ab5e9bc/4308f361d8a4/b96d38eec625.jpg'
             img = self.turboload(img_name)
+            FLIP = False
+            if self.flip: 
+                if random.randint(0,1) == 1: 
+                    FLIP = True
+            if FLIP: 
+                img = img[:,::-1]
             if self.imgsize != 512:
                 img = cv2.resize(img,(self.imgsize,self.imgsize), interpolation=cv2.INTER_AREA)
             
@@ -338,6 +346,9 @@ class RSNAClassifierDataset(Dataset):
                 img = augmented['image']   
             if self.mode in ['train', 'valid', 'all']:
                 label = self.data.loc[idx, self.imgclasses + self.studyclasses]
+                if FLIP : 
+                    label['leftsided_pe'], label['rightsided_pe'] = \
+                        label['rightsided_pe'], label['leftsided_pe']
                 if self.mode == 'train': 
                     label = np.clip(label, self.label_smoothing, 1 - self.label_smoothing)
                 label = torch.tensor(label)
