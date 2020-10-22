@@ -1,4 +1,18 @@
 FOLD=0
+EPOCH=15
+for FOLD in 0 1 # 2 3 4 
+do
+    WEIGHTS="classifier_RSNAClassifier_tf_efficientnet_b5_ns_04d_"$FOLD"__nclasses10_size512_accum4_fold"$FOLD"_epoch"$EPOCH
+    python training/pipeline/infer_image_classifier.py --device 'cuda' --fold $FOLD --batchsize 192 \
+        --config 'configs/512/effnetb5_lr5e4_multi.json' \
+        --weightsrgx $WEIGHTS --epochs '' \
+        --infer false --emb true
+done
+
+
+: '
+# Best 0.164
+FOLD=0
 EPOCH=20
 for FOLD in 1 2 # 3 4 0
 do
@@ -8,8 +22,7 @@ do
         --weightsrgx $WEIGHTS --epochs '' \
         --infer false --emb true
 done
-
-
+'
 
 : '
 # Best epoch - 0.177 LB
