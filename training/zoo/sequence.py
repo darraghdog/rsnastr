@@ -58,9 +58,12 @@ class LSTMNet(nn.Module):
         h_lstm2, _ = self.lstm2(h_lstm1)
         
         # Masked mean and max pool for study level prediction
-        avg_pool = torch.sum(h_lstm2, 1) * (1/ mask.sum(1)).unsqueeze(1)
-        max_pool, _ = torch.max(h_lstm2, 1)
-        
+        #avg_pool = torch.sum(h_lstm2, 1) * (1/ mask.sum(1)).unsqueeze(1)
+        #max_pool, _ = torch.max(h_lstm2, 1)
+        avg_pool = torch.sum(h_lstm2 * mask.unsqueeze(-1).float(), 1)* \
+                             (1/ mask.sum(1).float()).unsqueeze(1)
+        max_pool, _ = torch.max(h_lstm2 * mask.unsqueeze(-1).float(), 1)
+
         # Get study level prediction
         h_study_conc = torch.cat((max_pool, avg_pool), 1)
         h_study_conc_linear1  = nn.functional.relu(self.study_linear1(h_study_conc))
