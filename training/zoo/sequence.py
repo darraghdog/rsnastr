@@ -54,8 +54,8 @@ class LSTMNet(nn.Module):
         
         h_embedding = x
 
-        h_embadd = torch.cat((h_embedding[:,:,:self.embed_size], h_embedding[:,:,:self.embed_size]), -1)
-        h_embadd = self.embedding_dropout(h_embadd)
+        #h_embadd = torch.cat((h_embedding[:,:,:self.embed_size], h_embedding[:,:,:self.embed_size]), -1)
+        #h_embadd = self.embedding_dropout(h_embadd)
         h_lstm1, _ = self.lstm1(h_embedding)
         h_lstm2, _ = self.lstm2(h_lstm1)
         
@@ -143,3 +143,4 @@ class StudyImgNet(nn.Module):
         outexm = self.linear_exm_out(study_hidden)
         
         return outimg, outexm
+
