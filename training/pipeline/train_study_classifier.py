@@ -259,8 +259,3 @@ for epoch in range(args.epochs):
         valloss.increment(loss, img_loss, exam_loss)
     val_loss, val_img_loss, val_exam_loss = rsna_criterion_all(*valcollect.concat(args.device), img_wt)
     logger.info(f'Valid loss all {val_loss:.4f} img {val_img_loss:.4f} exam {val_exam_loss:.4f}')
-    
-    
-    
-    
-    
