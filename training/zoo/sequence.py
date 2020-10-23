@@ -30,6 +30,7 @@ class LSTMNet(nn.Module):
                  nimgclasses = 1, 
                  nstudyclasses = 9, 
                  LSTM_UNITS=64, 
+                 infer = False, 
                  DO = 0.3):
         super(LSTMNet, self).__init__()
         
@@ -37,6 +38,7 @@ class LSTMNet(nn.Module):
         self.nstudyclasses = nstudyclasses
         self.embed_size = embed_size
         self.embedding_dropout = SpatialDropout(DO)
+        self.infer = infer
         
         self.lstm1 = nn.LSTM(embed_size, LSTM_UNITS, bidirectional=True, batch_first=True)
         self.lstm2 = nn.LSTM(LSTM_UNITS * 2, LSTM_UNITS, bidirectional=True, batch_first=True)
@@ -60,9 +62,11 @@ class LSTMNet(nn.Module):
         # Masked mean and max pool for study level prediction
         #avg_pool = torch.sum(h_lstm2, 1) * (1/ mask.sum(1)).unsqueeze(1)
         #max_pool, _ = torch.max(h_lstm2, 1)
-        avg_pool = torch.sum(h_lstm2 * mask.unsqueeze(-1).float(), 1)* \
-                             (1/ mask.sum(1).float()).unsqueeze(1)
-        max_pool, _ = torch.max(h_lstm2 * mask.unsqueeze(-1).float(), 1)
+        if self.infer:
+            mask = mask.float()
+        avg_pool = torch.sum(h_lstm2 * mask.unsqueeze(-1), 1)* \
+                             (1/ mask.sum(1)).unsqueeze(1)
+        max_pool, _ = torch.max(h_lstm2 * mask.unsqueeze(-1), 1)
 
         # Get study level prediction
         h_study_conc = torch.cat((max_pool, avg_pool), 1)
