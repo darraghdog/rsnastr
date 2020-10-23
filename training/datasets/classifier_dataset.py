@@ -104,10 +104,15 @@ class RSNASequenceDataset(Dataset):
         if self.mode == 'train': 
                 out['studylabels'] = np.clip(out['studylabels'], self.label_smoothing, 1 - self.label_smoothing)
                 out['imglabels'] = np.clip(out['imglabels'], self.label_smoothing, 1 - self.label_smoothing)
+                '''
                 if self.randomflip and (random.randint(0,1) == 1):
-                    out['imglabels'] = out['imglabels'][::-1]
-                    out['img_name'] = out['img_name'][::-1]
-                    out['emb'] = out['emb'][::-1]
+                    #keep = 0.75 + random.random() * 0.25
+                    #y = out['imglabels']
+                    #perm = torch.randperm(y.shape[0])[:round(y.shape[0]*keep)].sort().values
+                    out['imglabels'] = out['imglabels'][perm.numpy()]
+                    out['img_name'] = out['img_name'][perm.numpy()]
+                    out['emb'] = out['emb'][perm]
+                '''
         return out
 
 
