@@ -10,7 +10,6 @@ import platform
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
 from utils.utils import RSNAWEIGHTS
-import random
 
 import albumentations as A
 from albumentations.pytorch import ToTensor
@@ -55,11 +54,11 @@ class RSNASequenceDataset(Dataset):
                           .filter(regex='Study|Series').drop_duplicates())
         self.imgclasses = imgclasses
         self.studyclasses = studyclasses
-        self.randomflip = randomflip
         self.label_smoothing = label_smoothing
         self.labeltype = labeltype
         self.embimgmat = embimgmat
         #self.embexmmat = embexmmat
+        self.randomflip = randomflip
         self.label = label
         self.delta = delta
 
@@ -106,6 +105,7 @@ class RSNASequenceDataset(Dataset):
                 out['studylabels'] = np.clip(out['studylabels'], self.label_smoothing, 1 - self.label_smoothing)
                 out['imglabels'] = np.clip(out['imglabels'], self.label_smoothing, 1 - self.label_smoothing)
                 if self.randomflip and (random.randint(0,1) == 1):
+                    print('AAAAAAAAAAA')
                     out['imglabels'] = out['imglabels'][::-1]
                     out['img_name'] = out['img_name'][::-1]
                     out['emb'] = out['emb'][::-1]
@@ -340,7 +340,7 @@ class RSNAClassifierDataset(Dataset):
             # img_name ='data/jpeg/train/31746ab5e9bc/4308f361d8a4/b96d38eec625.jpg'
             img = self.turboload(img_name)
             FLIP = False
-            if self.flip: 
+            if self.flip and (self.mode=='train'):
                 if random.randint(0,1) == 1: 
                     FLIP = True
             if FLIP: 
