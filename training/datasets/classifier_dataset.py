@@ -10,6 +10,7 @@ import platform
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
 from utils.utils import RSNAWEIGHTS
+import random
 
 import albumentations as A
 from albumentations.pytorch import ToTensor
@@ -29,6 +30,7 @@ class RSNASequenceDataset(Dataset):
                  embimgmat,
                  # embexmmat,
                  folddf,
+                 randomflip = False, 
                  mode="train", 
                  delta=False,
                  fold = 0, 
@@ -53,6 +55,7 @@ class RSNASequenceDataset(Dataset):
                           .filter(regex='Study|Series').drop_duplicates())
         self.imgclasses = imgclasses
         self.studyclasses = studyclasses
+        self.randomflip = randomflip
         self.label_smoothing = label_smoothing
         self.labeltype = labeltype
         self.embimgmat = embimgmat
@@ -102,6 +105,10 @@ class RSNASequenceDataset(Dataset):
         if self.mode == 'train': 
                 out['studylabels'] = np.clip(out['studylabels'], self.label_smoothing, 1 - self.label_smoothing)
                 out['imglabels'] = np.clip(out['imglabels'], self.label_smoothing, 1 - self.label_smoothing)
+                if self.randomflip and (random.randint(0,1) == 1):
+                    out['imglabels'] = out['imglabels'][::-1]
+                    out['img_name'] = out['img_name'][::-1]
+                    out['emb'] = out['emb'][::-1]
         return out
 
 
