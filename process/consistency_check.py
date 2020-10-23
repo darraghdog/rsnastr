@@ -4,7 +4,9 @@ import platform
 import argparse
 import pandas as pd
 import numpy as np
+import random
 
+'''
 PATH = '/Users/dhanley/Documents/rsnastr' \
         if platform.system() == 'Darwin' else '/data/rsnastr'
 os.chdir(PATH)
@@ -26,10 +28,9 @@ sub = pd.read_csv(args.subfile)
 test = pd.read_csv(args.testfile)
 logger.info(f'Submission shape : {sub.shape}')
 logger.info(f'Test shape : {test.shape}')
+'''
 
-
-
-def clean_sub(sub):
+def clean_sub(sub, test):
     # Create the necessary meta data
     subtmp = sub.copy()
     subtmp['iid'] = subtmp.id.str.split('_').str[0]
@@ -41,72 +42,81 @@ def clean_sub(sub):
     subtmp = subtmp.drop(['StudyInstanceUID','SOPInstanceUID'], 1)
     
     # Identify positive and negative studies
-    subtmp[subtmp.id.str.contains('_negative_exam_for_pe')].hist(bins = 100)
     posStudy = subtmp[subtmp.id.str.contains('_negative_exam_for_pe')].query('label<0.5').Study.tolist()
-    negStudy = subtmp[subtmp.id.str.contains('_negative_exam_for_pe')].query('label>0.5').Study.tolist()
-    subtmp.query('iid == id').groupby('Study')['label'].max().loc[negStudy].hist(bins = 500)
-    subtmp.query('iid == id').groupby('Study')['label'].max().loc[posStudy].hist(bins = 500)
+    negStudy = subtmp[subtmp.id.str.contains('_negative_exam_for_pe')].query('label>=0.5').Study.tolist()
     
+    # For negative studies clip the images at 0.49999
     iidix = subtmp.query('iid == id').set_index('Study').loc[negStudy].iid.tolist()
     subtmp = subtmp.set_index('iid')
     subtmp.label.loc[iidix] = subtmp.label.loc[iidix].clip(0, 0.49999)
-    subtmp.label.loc[iidix] .hist()
     subtmp = subtmp.reset_index()
     
-    #ix = subtmp.id.str.contains('_negative_exam_for_pe')
-    #posStudy = subtmp[ix].query('label < 0.5').Study.values
-    #negStudy = subtmp[ix].query('label >= 0.5').Study.values
+    # For positive studies raise the highest to 0.50001
+    posdf = subtmp.query('iid == id').set_index('Study').loc[posStudy].reset_index()
+    posidx = posdf.set_index('id').groupby('Study')['label'].idxmax().values
+    subtmp = subtmp.set_index('iid')
+    subtmp.label.loc[posidx] = subtmp.label.loc[posidx] .clip(0.50001, 1.0)
+    subtmp = subtmp.reset_index()
+    
+    def subreshape(df, studyidx, regex):
+        df = df.set_index('Study').loc[studyidx].reset_index()
+        sidedf = df[df.id.str.contains(regex)][['id', 'label']]
+        sidedf [['id','side']] = sidedf ["id"].str.split("_", 1, expand=True)
+        sidedf = sidedf.pivot(index='id', columns='side', values='label')
+        return sidedf
     
     
-    # Addres rule 1a
-    ix = subtmp.Study.isin(posStudy)
+    # Address rule 2a
+    sidedf = subreshape(subtmp, negStudy, regex='indeterminate|negative_exam')
+    sidedf = sidedf[sidedf.max(1)<=0.5]
+    sideStudy2aA = sidedf.idxmax(1).reset_index().agg('_'.join, axis=1).tolist()
     
-    rvlv = subtmp.set_index('Study').loc[posStudy]
-    rvlvg = rvlv[rvlv.id.str.contains('rv_lv_ratio_g')]
-    rvlvl = rvlv[rvlv.id.str.contains('rv_lv_ratio_l')]
-    rvlvg['rvlvl_label'] = rvlvl.label
-    rvlvg['rvlvg_label'] = rvlvg.label
+    sidedf = subreshape(subtmp, negStudy, regex='indeterminate|negative_exam')
+    sidedf = sidedf[sidedf.min(1)>0.5]
+    sideStudy2aB = sidedf.idxmin(1).reset_index().agg('_'.join, axis=1).tolist()
     
-    rvlvg['ctoverhalf'] = (rvlvg.filter(like='rvlv')>0.5).sum(1)
-    rvlvg['nearesttohalf'] = abs(rvlvg.filter(like='rvlv') - 0.5).idxmin(1)
+    # Address rule 2b
+    sidedf = subreshape(subtmp, negStudy, regex='rv_lv|central|sided|chronic')
+    sidedf = sidedf[sidedf.max(1)>0.5]
+    sideStudy2b = sidedf.idxmax(1).reset_index().agg('_'.join, axis=1).tolist()
     
-    # Raise these Study's rv_lv_ratio_gte_1 values to 0.501
-    rule1apartA = [ f'{v}_rv_lv_ratio_gte_1' for v in  
-                   rvlvg.query('ctoverhalf == 0').query("nearesttohalf =='rvlvg_label'").index.values]
-    # Raise these Study's with rv_lv_ratio_lt_1 values to 0.501
-    rule1apartB = [f'{v}_rv_lv_ratio_lt_1' for v in 
-                   rvlvg.query('ctoverhalf == 0').query("nearesttohalf =='rvlvl_label'").index.values]
-    # Drop these Study's rv_lv_ratio_gte_1 values to 0.499
-    rule1apartC = [f'{v}_rv_lv_ratio_gte_1' for v in 
-                   rvlvg.query('ctoverhalf == 2').query("nearesttohalf =='rvlvg_label'").index.values]
-    # Drop these Study's  rv_lv_ratio_lt_1 values to 0.499
-    rule1apartD = [f'{v}_rv_lv_ratio_lt_1' for v in 
-                   rvlvg.query('ctoverhalf == 2').query("nearesttohalf =='rvlvl_label'").index.values]
+    # Address rule 1aA
+    sidedf = subreshape(subtmp, posStudy, regex='rv_lv_ratio')
+    sidedf = sidedf[sidedf.max(1)<=0.5]
+    sideStudy1aA = sidedf.idxmax(1).reset_index().agg('_'.join, axis=1).tolist()
     
-    # Addres rule 1b
-    sidedf = subtmp.set_index('Study').loc[posStudy].reset_index()
-    sidedf = sidedf[sidedf.id.str.contains('central_pe|sided_pe')][['id', 'label']]
-    sidedf [['id','side']] = sidedf ["id"].str.split("_", 1, expand=True)
-    sidedf = sidedf.pivot(index='id', columns='side', values='label')
+    # Address rule 1aB
+    sidedf = subreshape(subtmp, posStudy, regex='rv_lv_ratio')
+    sidedf = sidedf[sidedf.min(1)>0.5]
+    sideStudy1aB = sidedf.idxmin(1).reset_index().agg('_'.join, axis=1).tolist()
+    
+    # Address rule 1b
+    sidedf = subreshape(subtmp, posStudy, regex='central_pe|sided_pe')
     sidedf = sidedf[sidedf.max(1)<0.5]
-    # Raise these to 0.50001
-    sideStudy = sidedf.idxmax(1).reset_index().agg('_'.join, axis=1).tolist()
+    sideStudy1b = sidedf.idxmax(1).reset_index().agg('_'.join, axis=1).tolist()
     
+    # Address rule 1c
+    sidedf = subreshape(subtmp, posStudy, regex='chronic_pe')
+    ind1cidx = sidedf[((sidedf>0.5).sum(1) == 2)].index.tolist()
+    ind1cidx = sidedf.loc[ind1cidx].idxmin(1).reset_index().agg('_'.join, axis=1).tolist()
     
+    # Address rule 1d
+    sidedf = subreshape(subtmp, posStudy, regex='indeterminate|negative_exam_for_pe')
+    ind1didx = sidedf[((sidedf>0.5).sum(1) == 2)].index.tolist()
+    ind1didx = sidedf.loc[ind1didx].idxmin(1).reset_index().agg('_'.join, axis=1).tolist()
+    
+
     '''
     Make changes
     '''
     subtmp = subtmp.set_index('id')
-    
-    subtmp.label.loc[rule1apartA + rule1apartB + sideStudy] = 0.50001
-    subtmp.label.loc[rule1apartC + rule1apartD] = 0.49999
-    
+    idx = sideStudy1aA + sideStudy1b + sideStudy2aA
+    subtmp.label.loc[idx] = subtmp.label.loc[idx].clip(0.5001, 1.0)
+    idx = sideStudy1aB + ind1cidx + ind1didx + sideStudy2b + sideStudy2aB 
+    subtmp.label.loc[idx] = subtmp.label.loc[idx].clip(0.0, 0.49999)
     subtmp = subtmp.reset_index()
     
     return subtmp[['id', 'label']]
-    
-
-
 
 def check_consistency(sub, test):
     
@@ -187,7 +197,7 @@ def check_consistency(sub, test):
     print('Found', len(errors), 'inconsistent predictions')
     return errors
 
-
+'''
 # CHECK
 errors = check_consistency(sub, test)
 errors.broken_rule.value_counts()
@@ -195,10 +205,11 @@ errors.broken_rule.value_counts()
 # CHECK
 sub1 = clean_sub(sub)
 errors = check_consistency(sub1, test)
-errors.head()
 errors.broken_rule.value_counts()
 
-sub1.to_csv('~/Downloads/sub1.csv', index = False)
-sub.to_csv('~/Downloads/sub.csv', index = False)
 
+(sub.label - sub1.label)[((sub.label - sub1.label)!=0)].round(1).value_counts().sort_index()
+(sub.label - sub1.label)[((sub.label - sub1.label)!=0)].hist(bins = 100)
+(abs((sub.label - sub1.label)[((sub.label - sub1.label)!=0)]) > 0.2).sum()
 
+'''
