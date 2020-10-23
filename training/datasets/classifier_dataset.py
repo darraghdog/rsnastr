@@ -105,7 +105,6 @@ class RSNASequenceDataset(Dataset):
                 out['studylabels'] = np.clip(out['studylabels'], self.label_smoothing, 1 - self.label_smoothing)
                 out['imglabels'] = np.clip(out['imglabels'], self.label_smoothing, 1 - self.label_smoothing)
                 if self.randomflip and (random.randint(0,1) == 1):
-                    print('AAAAAAAAAAA')
                     out['imglabels'] = out['imglabels'][::-1]
                     out['img_name'] = out['img_name'][::-1]
                     out['emb'] = out['emb'][::-1]
