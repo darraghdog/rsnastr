@@ -229,6 +229,7 @@ for epoch in range(start_epoch, max_epochs):
 
         epoch_img_names[current_epoch] += sample['img_name']
         imgs = sample["image"].to(args.device)
+        logger.info(imgs.shape)
         # logger.info(f'Mean {imgs.mean()} std {imgs.std()} ')
         labels = sample["labels"].to(args.device).float()
         mask = sample["labels"][:,0]
