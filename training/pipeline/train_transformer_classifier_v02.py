@@ -36,7 +36,7 @@ from torch.cuda.amp import autocast
 from tqdm import tqdm
 import torch.distributed as dist
 from training.datasets.classifier_dataset import RSNASequenceDataset, collateseqfn,         valSeedSampler, examSampler
-from training.zoo.sequence import SpatialDropout, LSTMNet
+from training.zoo.sequence import SpatialDropout, LSTMNet, TransformerNet
 from training.tools.utils import create_optimizer, AverageMeter, collectPreds, collectLoss
 from training.tools.utils import splitbatch, unmasklabels, unmasklogits
 from training.losses import getLoss
