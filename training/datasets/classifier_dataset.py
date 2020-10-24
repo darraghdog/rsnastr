@@ -314,6 +314,7 @@ class RSNASliceClassifierDataset(Dataset):
                  fold = 0, 
                  labeltype='all', 
                  step = 1,
+                 window=1,
                  imgsize=512,
                  imgclasses=["pe_present_on_image"],
                  studyclasses=["pe_present_on_image"],
@@ -324,6 +325,7 @@ class RSNASliceClassifierDataset(Dataset):
         self.mode = mode
         self.fold = fold
         self.step = step
+        self.window = window
         self.flip = flip
         self.fold_csv = folds_csv
         self.crops_dir = crops_dir
@@ -360,7 +362,7 @@ class RSNASliceClassifierDataset(Dataset):
             img = dict((k, self.turboload(v)  if v is not None else None )\
                         for k,v in spatdict.items())
             img = dict((k, im if im is not None else img[1] ) for k,im in img.items())
-            img = np.concatenate([im[:,:,1][:,:,np.newaxis] for k,im in img.items()], 2)
+            img = np.concatenate([im[:,:,self.window][:,:,np.newaxis] for k,im in img.items()], 2)
                 
             if self.imgsize != 512:
                 img = cv2.resize(img,(self.imgsize,self.imgsize), interpolation=cv2.INTER_AREA)

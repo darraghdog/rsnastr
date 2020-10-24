@@ -330,5 +330,5 @@ for epoch in range(start_epoch, max_epochs):
         'epoch': current_epoch + 1,
         'state_dict': model.state_dict(),
         'bce_best': bce,
-        }, args.output_dir + snapshot_name + f"_nclasses{nclasses}_size{conf['size']}_accum{args.accum}_slicestep{args.step}_fold{args.fold}_epoch{current_epoch}")
+        }, args.output_dir + snapshot_name + f"_nclasses{nclasses}_size{conf['size']}_accum{args.accum}_slicestep{args.step}_window(args.window)_fold{args.fold}_epoch{current_epoch}")
     current_epoch += 1
