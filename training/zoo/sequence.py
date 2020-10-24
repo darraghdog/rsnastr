@@ -13,6 +13,58 @@ from torch.nn.modules.linear import Linear
 from torch.nn.modules.pooling import AdaptiveAvgPool2d
 import torch.nn.functional as F
 from torch import nn
+from pytorch_transformers.modeling_bert import BertConfig, BertEncoder
+
+
+class TransformerNet(nn.Module):
+    def __init__(self, 
+                 cfg, 
+                 nimgclasses = 1, 
+                 nstudyclasses = 9):
+        super(TransformerNet, self).__init__()
+        
+        self.nimgclasses = nimgclasses
+        self.nstudyclasses = nstudyclasses
+        self.cfg = cfg
+
+        self.config = BertConfig( 
+            3, # not used
+            hidden_size=cfg.hidden_size,
+            num_hidden_layers=cfg.nlayers,
+            num_attention_heads=cfg.nheads,
+            max_position_embeddings=cfg.max_position_embeddings, 
+            intermediate_size=cfg.intermediate_size,
+            hidden_dropout_prob=cfg.dropout,
+            attention_probs_dropout_prob=cfg.dropout,
+        )
+        
+        self.encoder = BertEncoder(self.config).to(cfg.device)
+
+        self.img_linear_out = nn.Linear(cfg.hidden_size, self.nimgclasses)
+        self.study_linear_out = nn.Linear(cfg.hidden_size, self.nstudyclasses)
+        
+    def extended_mask(self, mask):
+        # Prep mask
+        extended_attention_mask = mask.unsqueeze(1).unsqueeze(2)
+        extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
+        head_mask = [None] * self.cfg.nlayers
+        
+        return extended_attention_mask, head_mask
+        
+    def forward(self, x, mask, lengths=None):
+        
+        extended_attention_mask, head_mask =  extended_mask( mask )
+        
+        # Pass thru encoder
+        encoded_layers = encoder(x, extended_attention_mask, head_mask=head_mask)
+        sequence_output = encoded_layers[-1]
+        
+        # Pass output to a linear layer
+        img_output = self.img_linear_out(sequence_output).squeeze()
+        study_output = self.study_linear_out(sequence_output[:, -1]).squeeze()
+        
+        return study_output, img_output
+
 
 class SpatialDropout(nn.Dropout2d):
     def forward(self, x):
