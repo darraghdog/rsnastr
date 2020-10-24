@@ -362,7 +362,6 @@ class RSNASliceClassifierDataset(Dataset):
             img = dict((k, self.turboload(v)  if v is not None else None )\
                         for k,v in spatdict.items())
             img = dict((k, im if im is not None else img[1] ) for k,im in img.items())
-            print(self.window)
             img = np.concatenate([im[:,:,self.window][:,:,np.newaxis] for k,im in img.items()], 2)
                 
             if self.imgsize != 512:
