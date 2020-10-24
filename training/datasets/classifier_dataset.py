@@ -357,37 +357,30 @@ class RSNASliceClassifierDataset(Dataset):
             study_pe = 0 if samp.negative_exam_for_pe == 1 else 1
             img_name = self.image_file(samp)
             
-            imgs = dict((k, self.turboload(v) \
-                         if v is not None else np.zeros((512,512,3), dtype = np.uint8)) 
+            img = dict((k, self.turboload(v)  if v is not None else None )\
                         for k,v in spatdict.items())
-            
-            FLIP = False
-            if self.flip and (self.mode=='train'):
-                if random.randint(0,1) == 1: 
-                    FLIP = True
-            if FLIP: 
-                imgs = dict((k,im[:,::-1]) for (k,im) in imgs.items())
+            img = dict((k, im if im is not None else img[1] ) for k,im in img.items())
+            img = np.concatenate([im[:,:,0][:,:,np.newaxis] for k,im in img.items()], 2)
                 
             if self.imgsize != 512:
-                imgs = dict((k,cv2.resize(im,(self.imgsize,self.imgsize), interpolation=cv2.INTER_AREA)) 
-                            for (k,im) in imgs.items())
-            if self.transform :
+                img = cv2.resize(img,(self.imgsize,self.imgsize), interpolation=cv2.INTER_AREA)
+            
+            if self.transform:
                 augfn = self.transform()
-                img = torch.cat([augfn(image=im)['image'] for k,im in imgs.items()], 0)
-                
+                augmented = augfn(image=img)
+                img = augmented['image']   
             if self.mode in ['train', 'valid', 'all']:
-                label = self.data.loc[imgidx, self.imgclasses + self.studyclasses]#.mean(0)
-                '''
+                label = self.data.loc[idx, self.imgclasses + self.studyclasses]
                 if FLIP : 
                     label['leftsided_pe'], label['rightsided_pe'] = \
                         label['rightsided_pe'], label['leftsided_pe']
-                '''
                 if self.mode == 'train': 
                     label = np.clip(label, self.label_smoothing, 1 - self.label_smoothing)
-                label = label.mean(0)
-                label[2:] = np.clip(label[2:], 0., label[0])
-                # To account for blank images
-                label = label * len(imgidx) / 3
+                label = torch.tensor(label)
+                if self.labeltype=='all':
+                    if label[:2].sum() < 0.1:
+                        label[:] = 0 # If image level pe has nothing, then remove the others. 
+                
                 return {'img_name': img_name, 'studype': study_pe, 
                         'image': img, 'labels': label}
             else:      

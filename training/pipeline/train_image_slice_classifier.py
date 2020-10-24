@@ -153,11 +153,11 @@ valloader = DataLoader(valdataset, batch_size=args.batchsize, sampler = valsampl
 
 logger.info('Create model and optimisers')
 nclasses = len(conf["image_target_cols"]) + len(conf['exam_target_cols'])
-logger.info(f'Nclasses : {nclasses}')
-num_channels = 9
+#logger.info(f'Nclasses : {nclasses}')
+#num_channels = 9
 logger.info(f'change num channels: {num_channels}')
 model = classifiers.__dict__[conf['network']](encoder=conf['encoder'],nclasses = nclasses)
-model.encoder.conv_stem = nn.Conv2d(num_channels, 48, 3, 2, 1, bias = False)
+#model.encoder.conv_stem = nn.Conv2d(num_channels, 48, 3, 2, 1, bias = False)
 model = model.to(args.device)
 
 
