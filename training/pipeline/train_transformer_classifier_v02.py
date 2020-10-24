@@ -91,9 +91,9 @@ args = parser.parse_args()
 class cfg:
     dropout=0.2
     hidden_size=2048
-    intermediate_size=512
+    intermediate_size=2048
     max_position_embeddings=1536
-    nlayers=2
+    nlayers=1
     nheads=8    
     device=args.device
     seed=7
