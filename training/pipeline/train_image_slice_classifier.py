@@ -115,7 +115,7 @@ def create_val_transforms(size=300):
         ])
 
 logger.info('Create traindatasets')
-trndataset = RSNASliceClassifierDataset(mode="train",\
+self=trndataset = RSNASliceClassifierDataset(mode="train",\
                                        flip=args.flip,\
                                        fold=args.fold,\
                                        step=args.step,\
