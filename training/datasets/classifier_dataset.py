@@ -386,6 +386,8 @@ class RSNASliceClassifierDataset(Dataset):
                     label = np.clip(label, self.label_smoothing, 1 - self.label_smoothing)
                 label = label.mean(0)
                 label[2:] = np.clip(label[2:], 0., label[0])
+                # To account for blank images
+                label = label * len(imgidx) / 3
                 return {'img_name': img_name, 'studype': study_pe, 
                         'image': img, 'labels': label}
             else:      
