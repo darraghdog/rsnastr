@@ -1,4 +1,5 @@
 WINDOW=1
+FOLD=0
 for FOLD in 0 3 4 # 1 2 3 # 0
 do
     python training/pipeline/train_image_slice_classifier.py --device 'cuda' --fold $FOLD --batchsize 32 --accum 4 \
