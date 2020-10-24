@@ -22,6 +22,7 @@ import cv2
 import torch
 from torch.backends import cudnn
 from torch.nn import DataParallel
+from torch import nn
 from torch.utils.data import DataLoader
 from torch.cuda.amp import autocast
 import random
@@ -113,7 +114,7 @@ def create_val_transforms(size=300):
         ])
 
 logger.info('Create traindatasets')
-self = trndataset = RSNASliceClassifierDataset(mode="train",\
+trndataset = RSNASliceClassifierDataset(mode="train",\
                                        flip=args.flip,\
                                        fold=args.fold,\
                                        step=args.step,\
@@ -137,8 +138,6 @@ valdataset = RSNASliceClassifierDataset(mode="valid",
                                     folds_csv=args.folds_csv,
                                     transforms=create_val_transforms)
 
-batch = next(iter(trndataset))
-
 examlevel =  False # len(conf['exam_weights']) > 0
 logger.info(f"Use {'EXAM' if examlevel else 'IMAGE'} level valid sampler")
 valsampler = nSampler(valdataset.data, 
@@ -158,6 +157,7 @@ logger.info(f'Nclasses : {nclasses}')
 model = classifiers.__dict__[conf['network']](encoder=conf['encoder'],nclasses = nclasses)
 model = model.to(args.device)
 num_channels = 9
+logger.info(f'change num channels: {num_channels}')
 model.encoder.conv_stem = nn.Conv2d(num_channels, 48, 3, 2, 1, bias = False)
 
 
