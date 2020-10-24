@@ -67,6 +67,7 @@ arg('--labeltype', type=str, default='all') # or 'single'
 arg('--augextra', type=str, default=False) # or 'single'
 arg('--mixup_beta', type=float, default = 0.)
 arg('--step', type=float, default = 1)
+arg('--window', type=float, default = 1)
 arg('--prefix', type=str, default='classifier_')
 arg('--data-dir', type=str, default="data")
 arg('--folds-csv', type=str, default='folds.csv.gz')
@@ -118,6 +119,7 @@ trndataset = RSNASliceClassifierDataset(mode="train",\
                                        flip=args.flip,\
                                        fold=args.fold,\
                                        step=args.step,\
+                                       window=args.window,\
                                        imgsize = conf['size'],\
                                        crops_dir=args.crops_dir,\
                                        imgclasses=conf["image_target_cols"],\
@@ -130,6 +132,7 @@ logger.info('Create valdatasets')
 valdataset = RSNASliceClassifierDataset(mode="valid",
                                     fold=args.fold,
                                     step=args.step,
+                                    window=args.window,\
                                     crops_dir=args.crops_dir,
                                     imgclasses=conf["image_target_cols"],
                                     studyclasses=conf['exam_target_cols'],
