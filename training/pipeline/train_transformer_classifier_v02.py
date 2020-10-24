@@ -331,7 +331,7 @@ for epoch in range(args.epochs):
 
     #logger.info(f'Epoch {epoch} train loss all {trnres.loss/trnres.wts:.4f}')
     deltamsg = '_delta' if args.delta else ''
-    output_model_file = f'weights/exam_lstm_{wtsname}{deltamsg}__epoch{epoch}.bin'
+    output_model_file = f'weights/exam_transformer_{wtsname}{deltamsg}__epoch{epoch}.bin'
     torch.save(model.state_dict(), output_model_file)
     
     scheduler.step()
@@ -366,8 +366,5 @@ for epoch in range(args.epochs):
                           'exam loss': valres.exmloss/valres.exmwts})
     val_loss = valres.loss/valres.wts
     if best_val_loss>val_loss:
-        output_model_file = f'weights/exam_transformer_{wtsname}{deltamsg}__epoch{epoch}.bin'
-        torch.save(model.state_dict(), output_model_file)
-        best_val_loss=val_loss
         logger.info(f'Best Epoch {epoch} val loss all {best_val_loss:.4f}')
 
