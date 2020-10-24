@@ -22,6 +22,8 @@ from turbojpeg import TurboJPEG
 jpeg = TurboJPEG()
 
 from torch.utils.data import Dataset
+
+
 class RSNASequenceDataset(Dataset):
 
     def __init__(self, 
@@ -284,7 +286,10 @@ class RSNAImageSequenceDataset(Dataset):
         if self.mode == 'valid':
             df = (df[idx]).reset_index(drop=True)
         return df
-    
+
+
+
+
 def collateseqimgfn(batch):
     # Remove error reads
     batch = [b for b in batch if b is not None]
@@ -298,8 +303,128 @@ def collateseqimgfn(batch):
         return {'image': x_batch, 'study': nm_batch, 'labels': y_batch}
     else:
         return {'image': x_batch, 'study': nm_batch}
+    
 
+class RSNASliceClassifierDataset(Dataset):
 
+    def __init__(self, 
+                 transforms, 
+                 mode="train", 
+                 flip = False,
+                 fold = 0, 
+                 labeltype='all', 
+                 step = 1,
+                 imgsize=512,
+                 imgclasses=["pe_present_on_image"],
+                 studyclasses=["pe_present_on_image"],
+                 crops_dir='jpeg',
+                 data_path='data',
+                 label_smoothing=0.01,
+                 folds_csv='folds.csv.gz'):
+        self.mode = mode
+        self.fold = fold
+        self.step = step
+        self.flip = flip
+        self.fold_csv = folds_csv
+        self.crops_dir = crops_dir
+        self.imgclasses = imgclasses
+        self.studyclasses = studyclasses
+        self.datadir = data_path
+        self.data = self.loaddf()
+        self.transform = transforms
+        self.label_smoothing = label_smoothing
+        self.imgsize = imgsize
+        self.labeltype = labeltype
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        
+        try:
+        
+            samp = self.data.loc[idx]
+            # Gather the sequence
+            spatdict = {}
+            for t, i in enumerate(range(idx-self.step, idx+self.step+1, self.step)):
+                try:
+                    s = self.data.loc[i]
+                    spatdict[t] = self.image_file(s) if s.StudyInstanceUID==samp.StudyInstanceUID else None
+                except:
+                    spatdict[t] = None
+            
+            study_pe = 0 if samp.negative_exam_for_pe == 1 else 1
+            img_name = self.image_file(samp)
+            
+            imgs = dict((k, self.turboload(v) \
+                         if v is not None else np.zeros((512,512,3), dtype = np.uint8)) 
+                        for k,v in spatdict.items())
+            
+            FLIP = False
+            if self.flip and (self.mode=='train'):
+                if random.randint(0,1) == 1: 
+                    FLIP = True
+            if FLIP: 
+                imgs = dict((k,im[:,::-1]) for (k,im) in imgs.items())
+                
+            if self.imgsize != 512:
+                imgs = dict((k,cv2.resize(im,(self.imgsize,self.imgsize), interpolation=cv2.INTER_AREA)) 
+                            for (k,im) in imgs.items())
+            
+            if self.transform :
+                augfn = self.transform()
+                img = torch.cat([augfn(image=im)['image'] for k,im in imgs.items()], 0)
+            if self.mode in ['train', 'valid', 'all']:
+                label = self.data.loc[idx, self.imgclasses + self.studyclasses]
+                if FLIP : 
+                    label['leftsided_pe'], label['rightsided_pe'] = \
+                        label['rightsided_pe'], label['leftsided_pe']
+                if self.mode == 'train': 
+                    label = np.clip(label, self.label_smoothing, 1 - self.label_smoothing)
+                label = torch.tensor(label)
+                if self.labeltype=='all':
+                    if label[:2].sum() < 0.1:
+                        label[:] = 0 # If image level pe has nothing, then remove the others. 
+                return {'img_name': img_name, 'studype': study_pe, 
+                        'image': img, 'labels': label}
+            else:      
+                return {'img_name': img_name, 'image': img}
+        
+        except Exception as e:
+            print(f'Failed to load {img_name}...{e}')
+            return None
+        
+    def loaddf(self):
+        fname = 'train.csv.zip' if self.mode in ['train', 'valid', 'all'] else 'test.csv.zip'
+        df = pd.read_csv(f'{self.datadir}/{fname}')
+        # if we are on Darwin filter
+        if platform.system() == 'Darwin':
+            self.filter = os.listdir(f'{self.datadir}/{self.crops_dir}/train')
+            df = df.query('StudyInstanceUID in @self.filter').reset_index(drop=True)
+        fdf = pd.read_csv(f'{self.datadir}/{self.fold_csv}')
+        fls = fdf.query('fold == @self.fold').StudyInstanceUID.tolist()
+        idx = df.StudyInstanceUID.isin(fls) 
+        if self.mode == 'train':
+            df = (df[~idx]).reset_index(drop=True)
+        if self.mode == 'valid':
+            df = (df[idx]).reset_index(drop=True)
+        return df
+    
+    # decoding input.jpg to BGR array
+    def turboload(self, f):
+        in_file = open(f, 'rb')
+        bgr_array = jpeg.decode(in_file.read())
+        in_file.close()
+        return bgr_array[:,:,::-1]
+    
+    def image_file(self, samp):
+        dirtype = 'train' if self.mode != 'test' else 'test'
+        return os.path.join(self.datadir, 
+                                self.crops_dir,
+                                dirtype,
+                                samp.StudyInstanceUID,
+                                samp.SeriesInstanceUID,
+                                samp.SOPInstanceUID) + '.jpg'
 
 class RSNAClassifierDataset(Dataset):
 
