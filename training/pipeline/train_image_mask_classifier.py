@@ -320,10 +320,11 @@ for epoch in range(start_epoch, max_epochs):
     Save the model
     '''
     bce = losses.avg
+    wtname = conf['weights'] if 'weights' in conf else ''
     print("Epoch: {} bce: {:.5f}, bce_best: {:.5f}".format(current_epoch, bce, bce_best))
     torch.save({
         'epoch': current_epoch + 1,
         'state_dict': model.state_dict(),
         'bce_best': bce,
-        }, args.output_dir + snapshot_name + f"_nclasses{nclasses}_size{conf['size']}_accum{args.accum}_fold{args.fold}_epoch{current_epoch}")
+        }, args.output_dir + snapshot_name + f"_nclasses{nclasses}{wtname}_size{conf['size']}_accum{args.accum}_fold{args.fold}_epoch{current_epoch}")
     current_epoch += 1
