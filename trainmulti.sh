@@ -1,8 +1,20 @@
+for FOLD in 0 3 # 1 # 2 3 
+do
+    python training/pipeline/train_image_mask_classifier.py --device 'cuda' --fold $FOLD --batchsize 16 --accum 8 --logdir 'logs/zoo' --flip True --augextra False --label-smoothing 0.005 --config 'configs/512/effnetb5_lr5e4_multi_even.json'
+done
+
+:'
+for FOLD in 0 1 # 2 3 
+do
+    python training/pipeline/train_image_mask_classifier.py --device 'cuda' --fold $FOLD --batchsize 16 --accum 8 --logdir 'logs/zoo' --flip True --augextra False --label-smoothing 0.005 --config 'configs/512/effnetb7_lr5e4_multi.json'
+done
+'
+:'
 for FOLD in 1 2 3 # 0
 do
     python training/pipeline/train_image_mask_classifier.py --device 'cuda' --fold $FOLD --batchsize 32 --accum 4 --logdir 'logs/zoo' --flip True --augextra False --label-smoothing 0.005 --config 'configs/512/effnetb5_lr5e4_multi.json' 
 done
-
+'
 : '
 for FOLD in 0 1 2 3 4
 do
