@@ -79,6 +79,7 @@ arg('--nclasses', type=str, default=1)
 arg('--crops-dir', type=str, default='jpegip')
 arg('--lstm_units',   type=int, default=512)
 arg('--hidden_size', type=int, default=2048)
+arg('--intermediate_size', type=int, default=2048)
 arg('--nlayers', type=int, default=1)
 arg('--epochs',   type=int, default=12)
 arg("--delta", default=False, type=lambda x: (str(x).lower() == 'true'))
@@ -93,7 +94,7 @@ args = parser.parse_args()
 class cfg:
     dropout=0.2
     hidden_size=args.hidden_size
-    intermediate_size=2048
+    intermediate_size=args.intermediate_size
     max_position_embeddings=1536
     nlayers=args.nlayers
     nheads=8    
@@ -333,7 +334,7 @@ for epoch in range(args.epochs):
 
     #logger.info(f'Epoch {epoch} train loss all {trnres.loss/trnres.wts:.4f}')
     deltamsg = '_delta' if args.delta else ''
-    output_model_file = f'weights/exam_transformer_{wtsname}{deltamsg}_nlayers{args.nlayers}_hidden{args.hidden_size}__epoch{epoch}.bin'
+    output_model_file = f'weights/exam_transformer_{wtsname}{deltamsg}_nlayers{args.nlayers}_intermediate{args.intermediate_size}_hidden{args.hidden_size}__epoch{epoch}.bin'
     torch.save(model.state_dict(), output_model_file)
     
     scheduler.step()
