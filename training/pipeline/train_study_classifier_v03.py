@@ -92,18 +92,6 @@ args = parser.parse_args()
 
 # In[3]:
 
-metadf = pd.read_csv(f'{args.data_dir}/train_meta.csv')
-metadf = metadf.set_index('SOPInstanceUID')[['slice_thicknesses']]
-metadf = metadf.loc[datadf.SOPInstanceUID]
-metadf['StudyInstanceUID'] = datadf['StudyInstanceUID'].values
-metadf['slice_thicknesses1'] = metadf.slice_thicknesses.shift(1)
-metadf['StudyInstanceUID1'] = metadf.StudyInstanceUID.shift(1)
-metadf['thickdiff'] = metadf.slice_thicknesses - metadf.slice_thicknesses1
-metadf['thickdiff'][metadf.StudyInstanceUID != metadf.StudyInstanceUID1] = 0.
-metadf['thickdiff'] = metadf['thickdiff'].fillna(0)
-metadf['thick'] = metadf['slice_thicknesses']
-metadf = metadf[['thick', 'thickdiff']]
-
 # In[4]:
 
 
@@ -124,6 +112,19 @@ datadf = pd.read_csv(f'{args.data_dir}/train.csv.zip')
 datadf = datadf.set_index('SOPInstanceUID').loc[imgls].reset_index()
 folddf = pd.read_csv(f'{args.data_dir}/{args.folds_csv}')
 
+
+
+metadf = pd.read_csv(f'{args.data_dir}/train_meta.csv')
+metadf = metadf.set_index('SOPInstanceUID')[['slice_thicknesses']]
+metadf = metadf.loc[datadf.SOPInstanceUID]
+metadf['StudyInstanceUID'] = datadf['StudyInstanceUID'].values
+metadf['slice_thicknesses1'] = metadf.slice_thicknesses.shift(1)
+metadf['StudyInstanceUID1'] = metadf.StudyInstanceUID.shift(1)
+metadf['thickdiff'] = metadf.slice_thicknesses - metadf.slice_thicknesses1
+metadf['thickdiff'][metadf.StudyInstanceUID != metadf.StudyInstanceUID1] = 0.
+metadf['thickdiff'] = metadf['thickdiff'].fillna(0)
+metadf['thick'] = metadf['slice_thicknesses'] / 5
+metadf = metadf[['thick', 'thickdiff']]
 
 # In[7]:
 
@@ -168,7 +169,7 @@ gc.collect()
 def diffmat(img_names, mask, metadf):
     diffmat = torch.zeros(mask.shape).flatten()
     imgidx = img_names.flatten()[img_names.flatten()!='mask']
-    diffmat[mask.flatten()==1.] = torch.tensor(metadf['thickdiff'].loc[imgidx].values).float()
+    diffmat[mask.flatten()==1.] = torch.tensor(metadf['thick'].loc[imgidx].values).float()
     diffmat = diffmat.reshape(mask.shape)
     diffmat = diffmat.half()
     return diffmat
@@ -176,7 +177,7 @@ def diffmat(img_names, mask, metadf):
 # In[11]:
 
 logger.info('Create model')
-model = LSTMNet(embed_size, 
+model = LSTMNet(embed_size +1, 
                        nimgclasses = len(CFG["image_target_cols"]), 
                        nstudyclasses = len(CFG['exam_target_cols']),
                        LSTM_UNITS=args.lstm_units, 
@@ -264,7 +265,7 @@ for epoch in range(args.epochs):
         xtrn = torch.cat((batch['emb'], slicediff.unsqueeze(-1)), -1)
         xtrn = xtrn.to(args.device, dtype=torch.float)
         
-        xtrn = batch['emb'].to(args.device, dtype=torch.float)
+        #xtrn = batch['emb'].to(args.device, dtype=torch.float)
         xtrn = torch.autograd.Variable(xtrn, requires_grad=True)
         yimg = torch.autograd.Variable(yimg)
         ystudy = torch.autograd.Variable(ystudy)
@@ -311,7 +312,7 @@ for epoch in range(args.epochs):
         xval = torch.cat((batch['emb'], slicediff.unsqueeze(-1)), -1)
         xval = xval.to(args.device, dtype=torch.float)
         
-        xval = batch['emb'].to(args.device, dtype=torch.float)
+        #xval = batch['emb'].to(args.device, dtype=torch.float)
         with torch.no_grad():
             studylogits, imglogits = model(xval, maskval)
             exam_loss, exam_wts = exam_lossfn(studylogits, ystudy)
