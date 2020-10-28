@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import random
 
-'''
+
 PATH = '/Users/dhanley/Documents/rsnastr' \
         if platform.system() == 'Darwin' else '/data/rsnastr'
 os.chdir(PATH)
@@ -28,7 +28,7 @@ sub = pd.read_csv(args.subfile)
 test = pd.read_csv(args.testfile)
 logger.info(f'Submission shape : {sub.shape}')
 logger.info(f'Test shape : {test.shape}')
-'''
+
 
 def clean_sub(sub, test):
     # Create the necessary meta data
@@ -92,7 +92,7 @@ def clean_sub(sub, test):
     
     # Address rule 1b
     sidedf = subreshape(subtmp, posStudy, regex='central_pe|sided_pe')
-    sidedf = sidedf[sidedf.max(1)<0.5]
+    sidedf = sidedf[sidedf.max(1)<=0.5]
     sideStudy1b = sidedf.idxmax(1).reset_index().agg('_'.join, axis=1).tolist()
     
     # Address rule 1c
@@ -202,8 +202,9 @@ def check_consistency(sub, test):
 errors = check_consistency(sub, test)
 errors.broken_rule.value_counts()
 
+
 # CHECK
-sub1 = clean_sub(sub)
+sub1 = clean_sub(sub, test)
 errors = check_consistency(sub1, test)
 errors.broken_rule.value_counts()
 
@@ -211,5 +212,4 @@ errors.broken_rule.value_counts()
 (sub.label - sub1.label)[((sub.label - sub1.label)!=0)].round(1).value_counts().sort_index()
 (sub.label - sub1.label)[((sub.label - sub1.label)!=0)].hist(bins = 100)
 (abs((sub.label - sub1.label)[((sub.label - sub1.label)!=0)]) > 0.2).sum()
-
 '''
