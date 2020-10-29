@@ -1,9 +1,0 @@
-FROM nvcr.io/nvidia/pytorch:20.09-py3
-
-RUN apt-get update
-RUN apt-get install -y libturbojpeg # libgdcm2.6
-RUN conda install -c conda-forge gdcm pydicom
-# RUN conda run -n dvao pip install pytorch_lightning torchsummary dicom_numpy scikit-image pillow pytorch-msssim
-
-ADD requirements_a100.txt requirements_a100.txt
-RUN pip install -r requirements_a100.txt
