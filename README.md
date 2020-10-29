@@ -10,9 +10,11 @@ This is the code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://ww
 Download the kaggle dataset and place in folder data, so we have a file `data/rsna-str-pulmonary-embolism-detection.zip`.  
   
 For preprocessing we load the dicom file and window over each CT scan in the dicom, using the below windows,   
+   
 - RED channel / LUNG window / level=-600, width=1500  
 - GREEN channel / PE window / level=100, width=700  
 - BLUE channel / MEDIASTINAL window / level=40, width=400  
+   
 Each channel is stored in a differnt channel within a jpeg file to easy loading to models.  
 If you would like more detail on windowing, check out [this descriptions](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection/discussion/182930).
 
