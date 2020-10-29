@@ -1,0 +1,1 @@
+python preprocessing/dicom_to_jpeg.py --pkgpath . --infile rsna-str-pulmonary-embolism-detection.zip
