@@ -18,16 +18,13 @@ For preprocessing we load the dicom file and window over each CT scan in the dic
 Each channel is stored in a differnt channel within a jpeg file to easy loading to models.  
 If you would like more detail on windowing, check out [this descriptions](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection/discussion/182930).
 
-Run the following to create jpegs from impages. 
+Run the following to create jpegs from dicoms. 
 
 `nohup sh bin/run_01_prepare_data.sh &> logs/preprocess_run.out &`   
 
-This will run in the background for around 4 hours. You can check how many files it was processed by `cat logs/preprocess_run.out | wc -l`.
+This will run in the background for around 4 hours. You can check how many files were processed using `cat logs/preprocess_run.out | wc -l`.
 
-This script runs a lot faster due to multithreading, however it does fail sometimes on some images. 
-You can check how many failures you got by running `cat logs/preprocess_run.out | grep "Failed" | wc -l`.
-It is recommended to rerun this a few times until the number of failures go to zero. A rerun will only process the previously failed images.  
-You should see the number of processed and failed images drastically reducing in the 2nd and third run.   
+This script runs a lot faster due to multithreading, however it does fail sometimes on some images. You can check how many failures you got by running `cat logs/preprocess_run.out | grep "Failed" | wc -l`. It is recommended to rerun this a few times until the number of failures go to zero. A rerun will only process the previously failed images. You should see the number of processed and failed images drastically reducing in the 2nd and third run.   
 
 
 
