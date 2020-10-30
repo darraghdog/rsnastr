@@ -26,9 +26,6 @@ Run the following to create jpegs from dicoms.
 This will run in the background for around 3 hours depending on your environment. There are a total of just under 2 million images to be extracted. You can check how many files were processed while the background process is running :  
 `cat logs/preprocess_run.out | wc -l`  
 
-This script runs a lot faster due to multithreading, however it does fail sometimes on some images. You can check how many failures you got by running:   
-`cat logs/preprocess_run.out | grep "Failed" | wc -l`   
-It is recommended to rerun the `bin/run_01_prepare_data.sh` a few times until the number of failures go to zero. A rerun will only process the previously failed images. You should see the number of processed and failed images drastically reducing in the second and third run.   
-
-
+This script runs a lot faster due to multithreading, however it does fail sometimes on some images. We run this a few times to pick up failed files. At the end, check the tail of the log to ensure no images are left.   
+`cat logs/preprocess_run.out | tail`   
 
