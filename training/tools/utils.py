@@ -24,25 +24,6 @@ import cv2
 import sys
 import logging
 
-RSNA_CFG = {
-    'image_target_cols': [
-        'pe_present_on_image', # only image level
-    ],
-    'exam_target_cols': [
-        'negative_exam_for_pe', # exam level
-        'rv_lv_ratio_gte_1', # exam level
-        'rv_lv_ratio_lt_1', # exam level
-        'leftsided_pe', # exam level
-        'chronic_pe', # exam level
-        'rightsided_pe', # exam level
-        'acute_and_chronic_pe', # exam level
-        'central_pe', # exam level
-        'indeterminate' # exam level
-    ], 
-    'image_weight': 0.07361963,
-    'exam_weights': [0.0736196319, 0.2346625767, 0.0782208589, 0.06257668712, 0.1042944785, 0.06257668712, 0.1042944785, 0.1877300613, 0.09202453988],
-}
-
 def get_level(level_str):
     ''' get level'''
     l_names = {logging.getLevelName(lvl).lower(): lvl for lvl in [10, 20, 30, 40, 50]} # noqa
@@ -139,3 +120,109 @@ def turboload(f):
     in_file.close()
     return bgr_array[:,:,::-1]
 
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
+
+def create_optimizer(optimizer_config, model, master_params=None):
+    """Creates optimizer and schedule from configuration
+    Parameters
+    ----------
+    optimizer_config : dict
+        Dictionary containing the configuration options for the optimizer.
+    model : Model
+        The network model.
+    Returns
+    -------
+    optimizer : Optimizer
+        The optimizer.
+    scheduler : LRScheduler
+        The learning rate scheduler.
+    """
+    if optimizer_config.get("classifier_lr", -1) != -1:
+        # Separate classifier parameters from all others
+        net_params = []
+        classifier_params = []
+        for k, v in model.named_parameters():
+            if not v.requires_grad:
+                continue
+            if k.find("encoder") != -1:
+                net_params.append(v)
+            else:
+                classifier_params.append(v)
+        params = [
+            {"params": net_params},
+            {"params": classifier_params, "lr": optimizer_config["classifier_lr"]},
+        ]
+    else:
+        if master_params:
+            params = master_params
+        else:
+            params = model.parameters()
+
+    if optimizer_config["type"] == "SGD":
+        optimizer = optim.SGD(params,
+                              lr=optimizer_config["learning_rate"],
+                              momentum=optimizer_config["momentum"],
+                              weight_decay=optimizer_config["weight_decay"],
+                              nesterov=optimizer_config["nesterov"])
+    elif optimizer_config["type"] == "FusedSGD":
+        optimizer = FusedSGD(params,
+                             lr=optimizer_config["learning_rate"],
+                             momentum=optimizer_config["momentum"],
+                             weight_decay=optimizer_config["weight_decay"],
+                             nesterov=optimizer_config["nesterov"])
+    elif optimizer_config["type"] == "Adam":
+        optimizer = optim.Adam(params,
+                               lr=optimizer_config["learning_rate"])
+    elif optimizer_config["type"] == "FusedAdam":
+        optimizer = FusedAdam(params,
+                              lr=optimizer_config["learning_rate"],
+                              weight_decay=optimizer_config["weight_decay"])
+    elif optimizer_config["type"] == "AdamW":
+        optimizer = AdamW(params,
+                               lr=optimizer_config["learning_rate"],
+                               weight_decay=optimizer_config["weight_decay"])
+    elif optimizer_config["type"] == "RmsProp":
+        optimizer = RMSprop(params,
+                               lr=optimizer_config["learning_rate"],
+                               weight_decay=optimizer_config["weight_decay"])
+    else:
+        raise KeyError("unrecognized optimizer {}".format(optimizer_config["type"]))
+
+
+    if optimizer_config["schedule"]["type"] == "step":
+        scheduler = LRStepScheduler(optimizer, **optimizer_config["schedule"]["params"])
+    elif optimizer_config["schedule"]["type"] == "steplr":
+        scheduler = StepLR(optimizer, **optimizer_config["schedule"]["params"])
+    elif optimizer_config["schedule"]["type"] == "clr":
+        scheduler = CyclicLR(optimizer, **optimizer_config["schedule"]["params"])
+    elif optimizer_config["schedule"]["type"] == "multistep":
+        scheduler = MultiStepLR(optimizer, **optimizer_config["schedule"]["params"])
+    elif optimizer_config["schedule"]["type"] == "exponential":
+        scheduler = ExponentialLRScheduler(optimizer, **optimizer_config["schedule"]["params"])
+    elif optimizer_config["schedule"]["type"] == "poly":
+        scheduler = PolyLR(optimizer, **optimizer_config["schedule"]["params"])
+    elif optimizer_config["schedule"]["type"] == "constant":
+        scheduler = lr_scheduler.LambdaLR(optimizer, lambda epoch: 1.0)
+    elif optimizer_config["schedule"]["type"] == "linear":
+        def linear_lr(it):
+            return it * optimizer_config["schedule"]["params"]["alpha"] + optimizer_config["schedule"]["params"]["beta"]
+        
+        scheduler = lr_scheduler.LambdaLR(optimizer, linear_lr)
+
+    return optimizer, scheduler
