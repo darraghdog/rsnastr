@@ -15,10 +15,16 @@ It is important to keep the batchsize large due to the number of targets and imb
 
 You are provided with a docker file. You can run without this by enuring the necessary packages are available. The docker environment can be set up like below (please ensure docker is installed).  
 ```
+cd docker
 docker build -t rsnav04 -f DockerFile.docker .
-docker run -itd --name RSNA_CONTAINERV04 -v $PWD:/mount --rm rsnav04:latest 
-docker attach RSNA_CONTAINERV04
+cd ..
+# Change the device to your gpu device number
+docker run -itd  --ipc=host --name RSNA_CONTAINERV04 -v $PWD:/mount --gpus '"device=5"' --rm rsnav04:latest 
+docker attach RSNA_CONTAINERV04 # To enter the docker
+cd ../mount # from inside the docker container - this is the home directory for the package
 ```
+
+To leave the docker, if you want to keep it running press `ctrl+p` and `ctrl+q` in sequence. To exit and close the docker conatiner, type `exit`.   
   
 At minimum, the training and inference steps should be run from inside the docker container.  
 
@@ -51,3 +57,12 @@ $ cat logs/preprocess_run.out | tail -4
 2020-10-31 00:43:43,020 - Preprocess - INFO - There are 0 unprocessed files
 ```
 
+#### Train image extractor
+   
+Run the following to train 4 of 5 folds. The folds are provided in the `data/` folder.  
+```
+nohup sh bin/run_02_image_features.sh &> logs/train_images_run01.out &
+```
+   
+To view progress run `cat logs/train_images_run01.out`.   
+Weights will be saved to folder `weights/`.    
