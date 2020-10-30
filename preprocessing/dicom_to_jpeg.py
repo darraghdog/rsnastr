@@ -26,7 +26,7 @@ sys.path.append(args.pkgpath)
 
 from training.tools.utils import get_logger
 
-logger = get_logger('Create folds', 'INFO') 
+logger = get_logger('Preprocess', 'INFO') 
 JPEG_PATH = f'{args.pkgpath}/{args.jpegpath}'
 
 def get_first_of_dicom_field_as_int(x):
