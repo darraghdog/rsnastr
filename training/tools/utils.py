@@ -23,6 +23,23 @@ from pathlib import Path
 import cv2
 import sys
 import logging
+import cv2
+#from apex.optimizers import FusedAdam, FusedSGD
+import numpy as np
+from timm.optim import AdamW
+import torch
+from torch import optim
+from torch.optim import lr_scheduler
+from torch.optim.rmsprop import RMSprop
+from torch.optim.adamw import AdamW
+from torch.optim.lr_scheduler import MultiStepLR, CyclicLR
+from torch.optim.lr_scheduler import MultiStepLR, CyclicLR, StepLR
+
+from training.tools.schedulers import ExponentialLRScheduler, PolyLR, LRStepScheduler
+
+cv2.ocl.setUseOpenCL(False)
+cv2.setNumThreads(0)
+
 
 def get_level(level_str):
     ''' get level'''
