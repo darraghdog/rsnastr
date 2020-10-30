@@ -2,14 +2,15 @@
 
 This is the code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection) challenge.
 
-![](docs/architecture.jpg?raw=true "Optional Title")
+#### Architecture
 
+![](docs/architecture.jpg?raw=true "Optional Title")
 
 #### Preprocessing
 
 Download the competition dataset and place in folder data, so we have a file `data/rsna-str-pulmonary-embolism-detection.zip`.  
   
-For preprocessing we load the dicom file and window over each CT scan in the dicom, using the below windows,   
+For preprocessing we load the dicom file and [window over each CT scan](https://github.com/darraghdog/rsnastr/blob/948d190422e4847229145ccfb09ad1d69ab6530c/preprocessing/dicom_to_jpeg.py#L32-L75) in the dicom, using the below windows,   
    
 - RED channel / LUNG window / level=-600, width=1500  
 - GREEN channel / PE window / level=100, width=700  
