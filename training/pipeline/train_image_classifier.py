@@ -13,7 +13,7 @@ from albumentations.pytorch import ToTensor
 from collections import defaultdict, OrderedDict
 import platform
 PATH = '/Users/dhanley/Documents/kaggle/rsnastr' \
-        if platform.system() == 'Darwin' else 'mount'
+        if platform.system() == 'Darwin' else '/mount'
 os.chdir(PATH)
 sys.path.append(PATH)
 import warnings
@@ -144,9 +144,6 @@ batch_size = conf['optimizer']['batch_size']
 if conf['fp16'] and args.device != 'cpu':
     scaler = torch.cuda.amp.GradScaler()
     
-    
-f"_epoch{current_epoch}"
-    
 snapshot_name = "{}_{}_{}_fold{}_img{}_accum{}_".format(conf.get("prefix", args.prefix), 
                                      conf['network'], 
                                      conf['encoder'], 
@@ -239,7 +236,8 @@ for epoch in range( max_epochs):
             # Update the amount of images we have seen already
             seen = set(epoch_img_names[epoch]).intersection(
                 set(itertools.chain(*[epoch_img_names[i] for i in range(epoch)])))
-            seenratio = len(seen)/len(epoch_img_names[epoch])
+            seenratio = len(seen)/len(epoch_img_names[epoch]) if \
+                                  len(epoch_img_names[epoch]) > 0 else 0
     pbar.close()
 
     

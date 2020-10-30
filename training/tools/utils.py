@@ -18,7 +18,6 @@ import pydicom
 from PIL import Image
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-import seaborn as sns
 from pathlib import Path
 import cv2
 import sys
