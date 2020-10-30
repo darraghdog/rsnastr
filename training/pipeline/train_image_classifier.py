@@ -224,8 +224,7 @@ for epoch in range( max_epochs):
         pbar.set_postfix({"lr": float(scheduler.get_lr()[-1]), "epoch": current_epoch, 
                           "loss": losses.avg, 
                           "loss_exam": tot_exam_loss / (i+1), 
-                          "loss_img": tot_img_loss / (i+1), 
-                          'seen_imgs': seen })
+                          "loss_img": tot_img_loss / (i+1)}) 
         
         del imgs, labels, mask
         if conf["optimizer"]["schedule"]["mode"] in ("step", "poly"):
@@ -233,10 +232,7 @@ for epoch in range( max_epochs):
         if i%5==0:
             
             torch.cuda.empty_cache()
-            # Update the amount of images we have seen already
-            seen = set(epoch_img_names[epoch]).intersection(
-                set(itertools.chain(*[epoch_img_names[i] for i in range(epoch)])))
-    pbar.close()
+            pbar.close()
 
     
     '''
