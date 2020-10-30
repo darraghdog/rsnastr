@@ -23,7 +23,7 @@ Run the following to create jpegs from dicoms.
 
 `nohup sh bin/run_01_prepare_data.sh &> logs/preprocess_run.out &`   
 
-This will run in the background for around 3 hours depending on your CPU speed. There are a total of just under 2 million images to be extracted. You can check how many files were processed while the background process is running :  
+This will run in the background for around 3 hours depending on your environment. There are a total of just under 2 million images to be extracted. You can check how many files were processed while the background process is running :  
 `cat logs/preprocess_run.out | wc -l`  
 
 This script runs a lot faster due to multithreading, however it does fail sometimes on some images. You can check how many failures you got by running:   
