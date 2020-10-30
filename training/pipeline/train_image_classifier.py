@@ -225,7 +225,7 @@ for epoch in range( max_epochs):
                           "loss": losses.avg, 
                           "loss_exam": tot_exam_loss / (i+1), 
                           "loss_img": tot_img_loss / (i+1), 
-                          'seen_prev': seenratio })
+                          'seen_imgs': seen })
         
         del imgs, labels, mask
         if conf["optimizer"]["schedule"]["mode"] in ("step", "poly"):
@@ -236,8 +236,6 @@ for epoch in range( max_epochs):
             # Update the amount of images we have seen already
             seen = set(epoch_img_names[epoch]).intersection(
                 set(itertools.chain(*[epoch_img_names[i] for i in range(epoch)])))
-            seenratio = len(seen)/len(epoch_img_names[epoch]) if \
-                                  len(epoch_img_names[epoch]) > 0 else 0
     pbar.close()
 
     
