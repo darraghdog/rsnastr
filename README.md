@@ -6,6 +6,22 @@ This is the code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://ww
 
 ![](docs/architecture.jpg?raw=true "Optional Title")
 
+#### Environment set up
+
+The solution was tested on a [NVIDIA DGX A100](https://www.nvidia.com/en-us/data-center/dgx-a100/) with Ubuntu 18.04.4 LTS as operating system.   
+The full solution runs end to end in approx 12 hours on a single A100 card. 
+This card has 40GB GPU memory, if you have less memory, you can use lower batchsize, but increase higher accumulation to simulate the same batchsize used. 
+It is important to keep the batchsize large due to the number of targets and imbalanced labels.
+
+You are provided with a docker file. You can run without this by enuring the necessary packages area available. The environment can be set up like below (please ensure docker is installed).  
+```
+docker build -t rsnav04 -f DockerFile.docker .
+docker run -itd --name RSNA_CONTAINERV04 -v $PWD:/mount --rm rsnav04:latest 
+docker attach RSNA_CONTAINERV04
+```
+  
+At minimum, the training and inference steps should be run from inside the docker container.  
+
 #### Preprocessing
 
 Download the competition dataset and place in folder data, so we have a file `data/rsna-str-pulmonary-embolism-detection.zip`.  
