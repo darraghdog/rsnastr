@@ -28,7 +28,6 @@ class RSNASequenceDataset(Dataset):
                  embimgmat,
                  # embexmmat,
                  folddf,
-                 randomflip = False, 
                  mode="train", 
                  delta=False,
                  fold = 0, 
@@ -56,8 +55,6 @@ class RSNASequenceDataset(Dataset):
         self.label_smoothing = label_smoothing
         self.labeltype = labeltype
         self.embimgmat = embimgmat
-        #self.embexmmat = embexmmat
-        self.randomflip = randomflip
         self.label = label
         self.delta = delta
 
@@ -103,15 +100,7 @@ class RSNASequenceDataset(Dataset):
         if self.mode == 'train': 
                 out['studylabels'] = np.clip(out['studylabels'], self.label_smoothing, 1 - self.label_smoothing)
                 out['imglabels'] = np.clip(out['imglabels'], self.label_smoothing, 1 - self.label_smoothing)
-                '''
-                if self.randomflip and (random.randint(0,1) == 1):
-                    #keep = 0.75 + random.random() * 0.25
-                    #y = out['imglabels']
-                    #perm = torch.randperm(y.shape[0])[:round(y.shape[0]*keep)].sort().values
-                    out['imglabels'] = out['imglabels'][perm.numpy()]
-                    out['img_name'] = out['img_name'][perm.numpy()]
-                    out['emb'] = out['emb'][perm]
-                '''
+
         return out
 
 
@@ -307,7 +296,6 @@ class RSNASliceClassifierDataset(Dataset):
     def __init__(self, 
                  transforms, 
                  mode="train", 
-                 flip = False,
                  fold = 0, 
                  labeltype='all', 
                  step = 1,
@@ -323,7 +311,6 @@ class RSNASliceClassifierDataset(Dataset):
         self.fold = fold
         self.step = step
         self.window = int(window)
-        self.flip = flip
         self.fold_csv = folds_csv
         self.crops_dir = crops_dir
         self.imgclasses = imgclasses
@@ -423,7 +410,6 @@ class RSNAClassifierDataset(Dataset):
     def __init__(self, 
                  transforms, 
                  mode="train", 
-                 flip = False,
                  fold = 0, 
                  labeltype='all', 
                  imgsize=512,
@@ -435,7 +421,6 @@ class RSNAClassifierDataset(Dataset):
                  folds_csv='folds.csv.gz'):
         self.mode = mode
         self.fold = fold
-        self.flip = flip
         self.fold_csv = folds_csv
         self.crops_dir = crops_dir
         self.imgclasses = imgclasses
@@ -460,12 +445,6 @@ class RSNAClassifierDataset(Dataset):
             # print(img_name)
             # img_name ='data/jpeg/train/31746ab5e9bc/4308f361d8a4/b96d38eec625.jpg'
             img = self.turboload(img_name)
-            FLIP = False
-            if self.flip and (self.mode=='train'):
-                if random.randint(0,1) == 1: 
-                    FLIP = True
-            if FLIP: 
-                img = img[:,::-1]
             if self.imgsize != 512:
                 img = cv2.resize(img,(self.imgsize,self.imgsize), interpolation=cv2.INTER_AREA)
             
@@ -474,9 +453,6 @@ class RSNAClassifierDataset(Dataset):
                 img = augmented['image']   
             if self.mode in ['train', 'valid', 'all']:
                 label = self.data.loc[idx, self.imgclasses + self.studyclasses]
-                if FLIP : 
-                    label['leftsided_pe'], label['rightsided_pe'] = \
-                        label['rightsided_pe'], label['leftsided_pe']
                 if self.mode == 'train': 
                     label = np.clip(label, self.label_smoothing, 1 - self.label_smoothing)
                 label = torch.tensor(label)
