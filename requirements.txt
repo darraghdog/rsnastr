@@ -1,12 +1,9 @@
-# Commented packages come with the Nvidia docker
-# For running outside docker you may want to uncomment these lines.  
-#torch==1.6.0
-#torchvision==0.7.0
+torch==1.6.0
+torchvision==0.7.0
 albumentations==0.4.5
 PyTurboJPEG==1.4.0
 opencv-python==4.1.2.30
 Pillow==7.2.0
-#pytorch-toolbelt==0.4.0
-#tensorboardX==2.0
+pytorch-toolbelt==0.4.0
 timm==0.2.1
 pydicom==2.0.0

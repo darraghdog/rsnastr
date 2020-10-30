@@ -105,13 +105,15 @@ if args.infile == 'data/dicom.zip':
     gc.collect()
 if args.infile == 'data/rsna-str-pulmonary-embolism-detection.zip':
     # May have to repeat this step a couple of times
-    z = z = zipfile.ZipFile(args.infile)
-    jpgondisk = set(filekey(glob.glob(f'{JPEG_PATH}/*/*/*/*'), ftype = '.jpg'))
-    zfiles = [z for z in z.namelist() if \
+    for i in range(10):
+        z = zipfile.ZipFile(args.infile)
+        jpgondisk = set(filekey(glob.glob(f'{JPEG_PATH}/*/*/*/*'), ftype = '.jpg'))
+        zfiles = [z for z in z.namelist() if \
               (z.split('/')[-1].replace('.dcm', '') not in jpgondisk)]
-    zfiles = [z for z in zfiles if '.dcm' in z]
-    logger.info(f'There a {len(zfiles)} unprocessed files')
-    # Process train meta data
-    with ThreadPoolExecutor() as threads:threads.map(process_pixel_zip, zfiles)   
-    gc.collect()
+        zfiles = [z for z in zfiles if '.dcm' in z]
+        logger.info(f'There are {len(zfiles)} unprocessed files')
+        if len(zfiles)==0: break
+        # Process train meta data
+        with ThreadPoolExecutor() as threads:threads.map(process_pixel_zip, zfiles)   
+        gc.collect()
 
