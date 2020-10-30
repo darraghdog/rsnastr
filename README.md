@@ -27,5 +27,11 @@ This will run in the background for around 3 hours depending on your environment
 `cat logs/preprocess_run.out | wc -l`  
 
 This script runs a lot faster due to multithreading, however it does fail sometimes on some images. We run this a few times to pick up failed files. At the end, check the tail of the log to ensure no images are left.   
-`cat logs/preprocess_run.out | tail`   
+```
+$ cat logs/preprocess_run.out | tail -4
+2020-10-31 00:43:13,676 - Preprocess - INFO - Success train/13ef0b464626/8e86fda638ec/346da83668c7.dcm
+2020-10-31 00:43:13,680 - Preprocess - INFO - Success train/fbe76b0deffe/6b26e3296bf3/81c2a6a8187a.dcm
+2020-10-31 00:43:13,681 - Preprocess - INFO - Success train/f673adb91a15/578d5d64aae8/821cc62d3d2c.dcm
+2020-10-31 00:43:43,020 - Preprocess - INFO - There are 0 unprocessed files
+```
 
