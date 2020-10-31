@@ -182,7 +182,7 @@ for epoch in range(cfg.epochs):
     trnres = resultsfn()
     pbartrn = tqdm(enumerate(trnloader), 
                 total = len(trndataset)//trnloader.batch_size, 
-                desc=f"Train epoch {epoch}", ncols=0)
+                desc=f"Train {cfg.network} epoch {epoch}", ncols=0)
     for step, batch in pbartrn:
         img_names, yimg, ystudy, masktrn, lelabels = splitbatch(batch, args.device)
         if yimg.sum()==0: 
@@ -223,7 +223,7 @@ for epoch in range(cfg.epochs):
     valres = resultsfn()
     pbarval = tqdm(enumerate(valloader), 
                 total = len(valdataset)//valloader.batch_size, 
-                desc=f"Valid epoch {epoch}", ncols=0)
+                desc=f"Valid {cfg.network} epoch {epoch}", ncols=0)
     for step, batch in pbarval:
         img_names, yimg, ystudy, maskval, lelabels = splitbatch(batch, args.device)
         if yimg.sum()==0: 
