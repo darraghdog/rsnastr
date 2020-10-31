@@ -4,7 +4,7 @@
     "lstm_units" : 512,
     "seed" : 7,
     "lr" : 0.00005,
-    "batchsize" : 32,
+    "batchsize" : 64,
     "epochs" : 20,
     "lrgamma" : 0.98,
     "label_smoothing" : 0.0
