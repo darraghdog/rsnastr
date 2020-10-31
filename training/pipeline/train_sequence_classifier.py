@@ -45,7 +45,7 @@ cv2.setNumThreads(0)
 import numpy as np
 import albumentations as A
 from albumentations.pytorch import ToTensor
-logger = get_logger('LSTM', 'INFO') 
+logger = get_logger('Train sequence', 'INFO') 
 
 logger.info('Load args')
 parser = argparse.ArgumentParser()
@@ -89,8 +89,8 @@ trndataset = RSNASequenceDataset(datadf,
                                    embmat, 
                                    folddf,
                                    mode="train",
-                                   imgclasses=CFG["image_target_cols"],
-                                   studyclasses=CFG['exam_target_cols'],
+                                   imgclasses=cfg.image_target_cols,
+                                   studyclasses=cfg.exam_target_cols,
                                    fold=args.fold,
                                    label_smoothing=cfg.label_smoothing,
                                    folds_csv=args.folds_csv)
@@ -99,10 +99,10 @@ valdataset = RSNASequenceDataset(datadf,
                                    embmat, 
                                    folddf,
                                    mode="valid",
-                                   imgclasses=CFG["image_target_cols"],
-                                   studyclasses=CFG['exam_target_cols'],
+                                   imgclasses=cfg.image_target_cols,
+                                   studyclasses=cfg.exam_target_cols,
                                    fold=args.fold,
-                                   label_smoothing=args.label_smoothing,
+                                   label_smoothing=cfg.label_smoothing,
                                    folds_csv=args.folds_csv)
 
 logger.info('Create loaders...')
