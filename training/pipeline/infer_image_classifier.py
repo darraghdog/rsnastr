@@ -2,12 +2,14 @@
 import argparse
 import json
 import os
+import gc
 import sys
 import itertools
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import glob
+import pickle
 import albumentations as A
 from albumentations.pytorch import ToTensor
 from collections import defaultdict, OrderedDict
@@ -112,10 +114,10 @@ with torch.no_grad():
         embls.append(emb.detach().cpu().numpy().astype(np.float32))
 outemb = np.concatenate(embls)
 logger.info('Write embeddings : shape {} {}'.format(*outemb.shape))
-fembname =  f'{f}__all_size{conf["size"]}.emb'
+fembname =  f'{weightfile.replace("weights/", "emb/")}__all_size{conf["size"]}.emb'
 #fembname = 'emb/'+fembname.replace(args.output_dir, '')
 logger.info('Embedding file name : {}'.format(fembname))
-np.savez_compressed(os.path.join('emb', fembname), outemb)
-with open(f'emb/{fembname}.imgnames.pk', 'wb') as handle:
+np.savez_compressed(fembname, outemb)
+with open(f'{fembname}.imgnames.pk', 'wb') as handle:
     pickle.dump(img_names, handle, protocol=pickle.HIGHEST_PROTOCOL)
 gc.collect()
