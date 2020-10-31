@@ -193,11 +193,12 @@ for epoch in range(cfg.epochs):
         yimg = torch.autograd.Variable(yimg)
         ystudy = torch.autograd.Variable(ystudy)
         with autocast():
-            
-            encoded_layers = model.encoder(xtrn, *model.extended_mask(masktrn))
-            imglogits = model.img_linear_out(encoded_layers[-1]).squeeze()
-            studylogits = model.study_linear_out(encoded_layers[-1][:, -1]).squeeze()
-
+            if cfg.network=='lstm':
+                studylogits, imglogits = model(xtrn, masktrn)
+            if cfg.network=='transformer':
+                encoded_layers = model.encoder(xtrn, *model.extended_mask(masktrn))
+                imglogits = model.img_linear_out(encoded_layers[-1]).squeeze()
+                studylogits = model.study_linear_out(encoded_layers[-1][:, -1]).squeeze()
             exam_loss, exam_wts = exam_lossfn(studylogits, ystudy)
             image_loss, image_wts = image_lossfn(imglogits, yimg, masktrn)
         loss = (exam_loss+image_loss)/(exam_wts+image_wts)
@@ -230,10 +231,12 @@ for epoch in range(cfg.epochs):
             continue
         xval = batch['emb'].to(args.device, dtype=torch.float)
         with torch.no_grad():
-            
-            encoded_layers = model.encoder(xval, *model.extended_mask(maskval))
-            imglogits = model.img_linear_out(encoded_layers[-1]).squeeze()
-            studylogits = model.study_linear_out(encoded_layers[-1][:, -1]).squeeze()
+            if cfg.network=='lstm':
+                studylogits, imglogits = model(xval, maskval)
+            if cfg.network=='transformer':
+                encoded_layers = model.encoder(xval, *model.extended_mask(maskval))
+                imglogits = model.img_linear_out(encoded_layers[-1]).squeeze()
+                studylogits = model.study_linear_out(encoded_layers[-1][:, -1]).squeeze()
             
             exam_loss, exam_wts = exam_lossfn(studylogits, ystudy)
             image_loss, image_wts = image_lossfn(imglogits, yimg, maskval)
