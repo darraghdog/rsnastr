@@ -1,6 +1,7 @@
 ## RSNA-STR Pulmonary Embolism Detection
 
-This is the code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection) challenge.
+This is the 5th place code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection) challenge.   
+A solution overview can be found [here](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection/discussion/193475).   
 
 #### Architecture
 
@@ -57,7 +58,7 @@ $ cat logs/preprocess_run.out | tail -4
 2020-10-31 00:43:43,020 - Preprocess - INFO - There are 0 unprocessed files
 ```
 
-#### Train image extractor
+#### Image feature extractor
    
 Run the following to train 4 of 5 folds. The folds are provided in the `data/` folder.  
 ```
@@ -65,4 +66,8 @@ nohup sh bin/run_02_image_features.sh &> logs/train_images_run01.out &
 ```
    
 To view progress run `cat logs/train_images_run01.out`.   
-Weights will be saved to folder `weights/`.    
+Weights will be saved to folder `weights/`. To extract features run the below.  
+```
+nohup sh bin/run_03_extract_image_features.sh &> logs/infer_images_run01.out &
+```
+
