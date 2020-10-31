@@ -48,7 +48,6 @@ arg('--config', metavar='CONFIG_FILE', help='path to configuration file')
 arg('--workers', type=int, default=8, help='number of cpu threads to use')
 arg('--device', type=str, default='cpu' if platform.system() == 'Darwin' else 'cuda', help='device for model - cpu/gpu')
 arg('--gpu', type=str, default='0', help='List of GPUs for parallel training, e.g. 0,1,2,3')
-arg('--output-dir', type=str, default='emb/')
 arg('--resume', type=str, default='')
 arg('--fold', type=int, default=0)
 arg('--accum', type=int, default=1)
@@ -90,19 +89,19 @@ logger.info(50*'-')
 loaderargs = {'num_workers' : args.workers, 'pin_memory': False, 'drop_last': False, 'collate_fn' : collatefn}
 allloader = DataLoader(alldataset, batch_size=args.batchsize, shuffle=False, **loaderargs)
 
-weightfile = f'{args.output_dir}/{args.weights}'
+weightfile = f'weights/{args.weights}'
 logger.info(f'Weights to process: {weightfile}')
 nclasses = len(conf['image_target_cols']) + len(conf['exam_target_cols'] )
-model = classifiers.__dict__[conf['network']](encoder=conf['encoder'], \
+model = classifiers.__dict__[conf['network']](encoder=f"{conf['encoder']}_infer", \
                                       nclasses = nclasses,
                                       infer=True)
-checkpoint = torch.load(f, map_location=torch.device(args.device))
+checkpoint = torch.load(weightfile, map_location=torch.device(args.device))
 model.load_state_dict(checkpoint['state_dict'])
 
 model = model.half().to(args.device)
 model = model.eval()
-logger.info(f'Embeddings total : {len(allloader)}')
-pbar = tqdm(enumerate(allloader), total=len(allloader), desc="Weights {}".format(f), ncols=0)
+logger.info(f'Embeddings total : {len(alldataset)}; total batches : {len(allloader)}')
+pbar = tqdm(enumerate(allloader), total=len(allloader), desc="Weights {}".format(weightfile), ncols=0)
 embls = []
 img_names = []
 with torch.no_grad():
