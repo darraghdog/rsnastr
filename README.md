@@ -10,7 +10,7 @@ A solution overview can be found [here](https://www.kaggle.com/c/rsna-str-pulmon
 #### Environment set up
 
 The solution was tested on a [NVIDIA DGX A100](https://www.nvidia.com/en-us/data-center/dgx-a100/) with Ubuntu 18.04.4 LTS as operating system.   
-The full solution runs end to end in approx 12 hours on a single A100 card. 
+The full solution runs end to end in approx 36 hours on a single A100 card. A single fold can be trained in 10 hours, and will achieve quite close to the same score as bagged submission.  
 This card has 40GB GPU memory, if you have less memory, you can use lower batchsize, but increase accumulation to simulate the same batchsize used. 
 It is important to keep the batchsize large due to the number of targets and imbalanced labels.
 
@@ -79,3 +79,17 @@ nohup bin/run_04_sequence_model.sh &> logs/train_sequences_run01.out &
 ```
 To view progress run `cat logs/train_images_run01.out`.   
 Weights will be saved to folder `weights/`. Model configs are stored on `configs/`.   
+
+#### Submission
+
+The trained weights can be seen in the following dataset.  
+
+The submitted kaggle kernel with prediction code can be seen below. 
+
+ 
+
+
+
+
+
+
