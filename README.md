@@ -71,3 +71,11 @@ Weights will be saved to folder `weights/`. To extract features run the below.
 nohup sh bin/run_03_extract_image_features.sh &> logs/infer_images_run01.out &
 ```
 
+#### Train sequence nodel
+   
+Run the following to train 4 of 5 folds. The folds are provided in the `data/` folder.  
+```
+nohup bin/run_04_sequence_model.sh &> logs/train_sequences_run01.out &
+```
+To view progress run `cat logs/train_images_run01.out`.   
+Weights will be saved to folder `weights/`. Model configs are stored on `configs/`.   
