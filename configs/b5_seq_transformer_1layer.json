@@ -1,0 +1,15 @@
+{
+    "network": "transformer",
+    "dropout": 0.0,
+    "hidden_size" : 2048,
+    "nlayers" : 1,
+    "intermediate_size" : 2048,
+    "max_position_embeddings" : 1536,
+    "nheads" : 8,
+    "seed" : 7,
+    "lr" : 0.00005,
+    "batchsize" : 32,
+    "epochs" : 20,
+    "lrgamma" : 0.98,
+    "label_smoothing" : 0.0
+}

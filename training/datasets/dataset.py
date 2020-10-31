@@ -29,7 +29,6 @@ class RSNASequenceDataset(Dataset):
                  # embexmmat,
                  folddf,
                  mode="train", 
-                 delta=False,
                  fold = 0, 
                  labeltype='all', 
                  label = True,
@@ -56,7 +55,6 @@ class RSNASequenceDataset(Dataset):
         self.labeltype = labeltype
         self.embimgmat = embimgmat
         self.label = label
-        self.delta = delta
 
     def __len__(self):
         return len(self.folddf)
@@ -67,19 +65,7 @@ class RSNASequenceDataset(Dataset):
         seriesidx = self.folddf.iloc[idx].SeriesInstanceUID
         studydf = self.datadf.loc[studyidx].query('SeriesInstanceUID == @seriesidx')
         embidx = self.datadf.index == studyidx
-
-        #studyimgemb = self.embimgmat[embidx]
-        #studyexmemb = self.embexmmat[embidx]
-        #studyemb = np.concatenate((self.embimgmat[embidx],
-        #                           self.embexmmat[embidx]),1)
         studyemb = self.embimgmat[embidx]
-        
-        if self.delta:
-            studydeltalag  = np.zeros(studyemb.shape)
-            studydeltalead = np.zeros(studyemb.shape)
-            studydeltalag [1:] = studyemb[1:]-studyemb[:-1]
-            studydeltalead[:-1] = studyemb[:-1]-studyemb[1:]
-            studyemb = np.concatenate((studyemb, studydeltalag, studydeltalead), -1)
         
         imgnames  = studydf.SOPInstanceUID.values
         
@@ -142,6 +128,45 @@ def collateseqfn(batch):
         
     return outbatch
     
+'''
+def collatexfrmfn(batch):
+    maxlen = cfg.max_position_embeddings
+    embdim = batch[0]['emb'].shape[1]
+    withimglabel = 'imglabels' in batch[0]
+    withstudylabel = 'studylabels' in batch[0]
+    if withimglabel:
+        labimgdim= batch[0]['imglabels'].shape[1]
+        
+    for b in batch:
+        masklen = maxlen-len(b['emb'])
+        b['img_name'] = np.concatenate((np.array(['mask']*masklen), b['img_name']))
+        b['emb'] = np.vstack((np.zeros((masklen, embdim)), b['emb']))
+        b['mask'] = np.ones((maxlen))
+        b['mask'][:masklen] = 0.
+        if withimglabel:
+            b['imglabels'] = np.vstack((np.zeros((maxlen-len(b['imglabels']), labimgdim)), b['imglabels']))
+            
+    outbatch = {'emb' : torch.tensor(np.vstack([np.expand_dims(b['emb'], 0) \
+                                                for b in batch])).float()}  
+    outbatch['mask'] = torch.tensor(np.vstack([np.expand_dims(b['mask'], 0) \
+                                                for b in batch])).float()
+    outbatch['img_name'] = np.vstack([np.expand_dims(b['img_name'], 0) \
+                                                for b in batch])
+    # Create an label id for each study - label encoder
+    outbatch['lelabels'] = torch.ones(outbatch['mask'].shape) * \
+                                    torch.arange(len(batch)).unsqueeze(1)
+
+    outbatch['study_name'] = [b['study_name'] for b in batch]
+    outbatch['series_name'] = [b['series_name'] for b in batch]
+    
+    if withimglabel:
+        outbatch['imglabels'] = torch.tensor(np.vstack([np.expand_dims(b['imglabels'], 0) for b in batch])).float()
+        outbatch['imglabels'] = outbatch['imglabels'].squeeze(-1)
+    if withstudylabel:
+        outbatch['studylabels'] = torch.tensor(np.concatenate([b['studylabels'] for b in batch], 0))
+        
+    return outbatch
+'''
     
 class RSNAImageSequenceDataset(Dataset):
 

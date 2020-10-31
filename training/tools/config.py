@@ -26,6 +26,27 @@ DEFAULTS = {
     }
 }
 
+RSNA_CFG = {'image_target_cols': ['pe_present_on_image'],
+ 'exam_target_cols': ['negative_exam_for_pe',
+  'rv_lv_ratio_gte_1',
+  'rv_lv_ratio_lt_1',
+  'leftsided_pe',
+  'chronic_pe',
+  'rightsided_pe',
+  'acute_and_chronic_pe',
+  'central_pe',
+  'indeterminate'],
+ 'image_weight': 0.07361963,
+ 'exam_weights': [0.0736196319,
+  0.2346625767,
+  0.0782208589,
+  0.06257668712,
+  0.1042944785,
+  0.06257668712,
+  0.1042944785,
+  0.1877300613,
+  0.09202453988]}
+
 
 def _merge(src, dst):
     for k, v in src.items():

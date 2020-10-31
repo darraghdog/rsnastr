@@ -39,6 +39,32 @@ from training.tools.schedulers import ExponentialLRScheduler, PolyLR, LRStepSche
 cv2.ocl.setUseOpenCL(False)
 cv2.setNumThreads(0)
 
+RSNA_CFG = {
+    'image_target_cols': [
+        'pe_present_on_image', # only image level
+    ],
+    'exam_target_cols': [
+        'negative_exam_for_pe', # exam level
+        'rv_lv_ratio_gte_1', # exam level
+        'rv_lv_ratio_lt_1', # exam level
+        'leftsided_pe', # exam level
+        'chronic_pe', # exam level
+        'rightsided_pe', # exam level
+        'acute_and_chronic_pe', # exam level
+        'central_pe', # exam level
+        'indeterminate' # exam level
+    ], 
+    'image_weight': 0.07361963,
+    'exam_weights': [0.0736196319, 0.2346625767, 0.0782208589, 0.06257668712, 0.1042944785, 0.06257668712, 0.1042944785, 0.1877300613, 0.09202453988],
+}
+
+class resultsfn:
+    loss   = 0.
+    wts    = 0.
+    imgloss   = 0.
+    imgwts    = 0.
+    exmloss   = 0.
+    exmwts    = 0.
 
 def get_level(level_str):
     ''' get level'''
@@ -242,3 +268,36 @@ def create_optimizer(optimizer_config, model, master_params=None):
         scheduler = lr_scheduler.LambdaLR(optimizer, linear_lr)
 
     return optimizer, scheduler
+
+def unmasklabels(yimg, ystudy, lelabels, img_names, mask):
+    ystudy = ystudy.unsqueeze(2).repeat(1, 1, yimg.size(1))
+    ystudy = ystudy.transpose(2, 1)
+    # get the mask for masked img labels
+    maskidx = mask.view(-1)==1
+    # Flatten them all along batch and seq dimension and remove masked values
+    yimg = yimg.view(-1, 1)[maskidx]
+    ystudy = ystudy.reshape(-1, ystudy.size(-1))[maskidx]
+    lelabels = lelabels.view(-1, 1)[maskidx] 
+    lelabels = lelabels.flatten()
+    img_names = img_names.flatten()[maskidx.detach().cpu().numpy()]
+    return yimg, ystudy, lelabels, img_names
+
+def unmasklogits(imglogits, studylogits, mask):
+    imglogits = imglogits.squeeze()
+    studylogits = studylogits.unsqueeze(2).repeat(1, 1, imglogits.size(1))
+    # get the mask for masked img labels
+    maskidx = mask.view(-1)==1
+    # Flatten them all along batch and seq dimension and remove masked values
+    imglogits = imglogits.view(-1, 1)[maskidx]
+    #studylogits = studylogits.reshape(-1, ystudy.size(-1))[maskidx]
+    studylogits = studylogits.reshape(-1, studylogits.size(1))[maskidx]
+    return imglogits, studylogits
+
+
+def splitbatch(batch, device):
+    img_names = batch['img_name']
+    yimg = batch['imglabels'].to(device, dtype=torch.float)
+    ystudy = batch['studylabels'].to(device, dtype=torch.float)
+    mask = batch['mask'].to(device, dtype=torch.int)
+    lelabels = batch['lelabels'].to(device, dtype=torch.int64)
+    return img_names, yimg, ystudy, mask, lelabels
