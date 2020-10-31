@@ -301,3 +301,50 @@ def splitbatch(batch, device):
     mask = batch['mask'].to(device, dtype=torch.int)
     lelabels = batch['lelabels'].to(device, dtype=torch.int64)
     return img_names, yimg, ystudy, mask, lelabels
+
+
+
+def get_first_of_dicom_field_as_int(x):
+    """
+    https://www.kaggle.com/omission/eda-view-dicom-images-with-correct-windowing
+    """
+    if type(x) == pydicom.multival.MultiValue:
+        return int(x[0])
+    else:
+        return int(x)
+
+def get_windowing(data):
+    # https://www.kaggle.com/omission/eda-view-dicom-images-with-correct-windowing
+    dicom_fields = [data[('0028', '1050')].value,  # window center
+                    data[('0028', '1051')].value,  # window width
+                    data[('0028', '1052')].value,  # intercept
+                    data[('0028', '1053')].value]  # slope
+    return [get_first_of_dicom_field_as_int(x) for x in dicom_fields]
+
+def window_image(img, window_center, window_width):
+    _, _, intercept, slope = get_windowing(img)
+    img = img.pixel_array * slope + intercept
+    img_min = window_center - window_width // 2
+    img_max = window_center + window_width // 2
+    img[img < img_min] = img_min
+    img[img > img_max] = img_max
+    img = (img - np.min(img)) / (np.max(img) - np.min(img))
+    return img
+
+def ip_window(img):
+    '''
+    # https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection/discussion/182930
+    RED channel / LUNG window / level=-600, width=1500
+    GREEN channel / PE window / level=100, width=700
+    BLUE channel / MEDIASTINAL window / level=40, width=400
+    '''
+    lung_img1 = window_image(img, -600, 1500)
+    lung_img2 = window_image(img, 100, 700)
+    lung_img3 = window_image(img, 40, 400)
+    
+    bsb_img = np.zeros((lung_img1.shape[0], lung_img1.shape[1], 3))
+    bsb_img[:, :, 0] = lung_img1
+    bsb_img[:, :, 1] = lung_img2
+    bsb_img[:, :, 2] = lung_img3
+    bsb_img = (bsb_img*255).astype(np.uint8)
+    return bsb_img
