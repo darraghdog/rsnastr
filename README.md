@@ -1,7 +1,8 @@
-## RSNA-STR Pulmonary Embolism Detection
+## RSNA-STR Pulmonary Embolism Detection :hospital:
 
 This is the 5th place code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection) challenge.   
-A solution overview can be found [here](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection/discussion/193475).   
+A solution overview can be found [here](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection/discussion/193475). You can also check the slides in teh `docs/` folder.  
+The solution video is [here](https://youtu.be/j24F5NEKfVI).   
 
 #### Architecture
 
