@@ -62,7 +62,7 @@ You can see the logs for the original jobs in the `logs/original/` for reference
 
 #### Image feature extractor
    
-Run the following to train 4 of 5 folds. The folds are provided in the `data/` folder.  
+Run the following to train 3 of 5 folds. The folds are provided in the `data/` folder.  
 ```
 nohup sh bin/run_02_image_features.sh &> logs/train_images_run01.out &
 ```
@@ -75,7 +75,7 @@ nohup sh bin/run_03_extract_image_features.sh &> logs/infer_images_run01.out &
 
 #### Train sequence nodel
    
-Run the following to train 4 of 5 folds. The folds are provided in the `data/` folder.  
+Run the following to train 3 of 5 folds. The folds are provided in the `data/` folder.  
 ```
 nohup bin/run_04_sequence_model.sh &> logs/train_sequences_run01.out &
 ```
