@@ -1,4 +1,4 @@
-for FOLD in 0 1 2 3 # 4 
+for FOLD in 0 1 2 # 3 4 
 do
     WEIGHTS='classifier__RSNAClassifier_tf_efficientnet_b5_ns_04d_fold'$FOLD'_img512_accum1___best'
     python training/pipeline/infer_image_classifier.py --device 'cuda' --fold $FOLD --batchsize 192 \

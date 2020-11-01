@@ -1,4 +1,4 @@
-for FOLD in 0 1 2 3
+for FOLD in 0 1 2 #3
 do
     python training/pipeline/train_image_classifier.py --device 'cuda' \
             --fold $FOLD --batchsize 40 \
