@@ -10,11 +10,11 @@ A solution overview can be found [here](https://www.kaggle.com/c/rsna-str-pulmon
 #### Environment set up
 
 The solution was tested on a [NVIDIA DGX A100](https://www.nvidia.com/en-us/data-center/dgx-a100/) with Ubuntu 18.04.4 LTS as operating system.   
-The full solution runs end to end in approx 36 hours on a single A100 card. A single fold can be trained in 10 hours, and will achieve quite close to the same score as bagged submission.  
-This card has 40GB GPU memory, if you have less memory, you can use lower batchsize, but increase accumulation to simulate the same batchsize used. 
+The full solution runs end to end in approx 24 hours on a single A100 card. A single fold can be trained in 8 hours, and will achieve on the leaderboard [0.162 Private and 0.167 public](https://www.kaggle.com/darraghdog/rsnastr2020-prediction?scriptVersionId=45912701).  
+This card has 40GB GPU memory, if you have less memory, you can use lower batchsize, but increase accumulation to simulate the same large batchsize used originally. 
 It is important to keep the batchsize large due to the number of targets and imbalanced labels.
 
-You are provided with a docker file. You can run without this by enuring the necessary packages are available. The docker environment can be set up like below (please ensure docker is installed).  
+You are provided with a docker file. You can run without this by ensuring the necessary packages are available. The docker environment can be set up like below (please ensure docker is installed).  
 ```
 cd docker
 docker build -t rsnav04 -f DockerFile.docker .
@@ -31,7 +31,7 @@ At minimum, the training and inference steps should be run from inside the docke
 
 #### Preprocessing
 
-Download the competition dataset and place in folder data, so we have a file `data/rsna-str-pulmonary-embolism-detection.zip`.  
+Download the competition dataset and place in folder data, so we have a file `data/rsna-str-pulmonary-embolism-detection.zip`. Do not unzip it.    
   
 For preprocessing we load the dicom file and [window over each CT scan](https://github.com/darraghdog/rsnastr/blob/948d190422e4847229145ccfb09ad1d69ab6530c/preprocessing/dicom_to_jpeg.py#L32-L75) in the dicom, using the below windows,   
    
@@ -58,6 +58,8 @@ $ cat logs/preprocess_run.out | tail -4
 2020-10-31 00:43:43,020 - Preprocess - INFO - There are 0 unprocessed files
 ```
 
+You can see the logs for the original jobs in the `logs/original/` for reference.  
+
 #### Image feature extractor
    
 Run the following to train 4 of 5 folds. The folds are provided in the `data/` folder.  
@@ -81,10 +83,9 @@ To view progress run `cat logs/train_images_run01.out`.
 Weights will be saved to folder `weights/`. Model configs are stored on `configs/`.   
 
 #### Submission
-
-The trained weights can be seen in the following dataset.  
-
-The submitted kaggle kernel with prediction code can be seen below. 
+   
+The trained weights can be found in the following dataset: [rsnastr2020weights](https://www.kaggle.com/darraghdog/rsnastr2020weights).  
+The submitted kaggle kernel with prediction code can be seen in this script [kaggle.com/darraghdog/rsnastr2020-prediction](https://www.kaggle.com/darraghdog/rsnastr2020-prediction/).   
 
  
 
