@@ -1,7 +1,7 @@
 ## RSNA-STR Pulmonary Embolism Detection :hospital:
 
 This is the 5th place code for the [RSNA-STR 2020 Pulmonary Embolism Detection](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection) challenge.   
-A solution overview can be found [here](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection/discussion/193475). You can also check the slides in teh `docs/` folder.  
+A solution overview can be found [here](https://www.kaggle.com/c/rsna-str-pulmonary-embolism-detection/discussion/193475). You can also check the slides in the `docs/` folder.  
 The solution video is [here](https://youtu.be/j24F5NEKfVI).   
 A single fold can be trained in 8 hours, and will achieve on the leaderboard [0.162 Private and 0.167 public](https://www.kaggle.com/darraghdog/rsnastr2020-prediction?scriptVersionId=45912701). 
 The below steps will train on 3 folds which results in a leaderboard score of [0.155 Private and 0.158 public](https://www.kaggle.com/darraghdog/rsnastr2020-prediction?scriptVersionId=45934741).
